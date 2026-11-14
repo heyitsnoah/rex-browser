@@ -25,7 +25,7 @@ The bridge binds only to loopback, validates the Host header, and requires a per
 
 ## Verification (2026-11-14 Eastern)
 
-Created only scratch session `browser-prototype` on Mini for input testing. Authenticated bridge input returned 200, a subsequent VT snapshot contained REX_BROWSER_OK, and the official WASM successfully parsed and formatted it. Requests without the local token return 403. Browser UI verification remains incomplete: computer-use failed with `Cannot read properties of undefined (reading 'timeoutMs')`.
+Created only scratch session `browser-prototype` on Mini for input testing. Authenticated bridge input returned 200, a subsequent VT snapshot contained REX_BROWSER_OK, and the official WASM successfully parsed and formatted it. Requests without the local token return 403. Browser smoke/regression now passes in throwaway Chromium via local CDP: session/pane loading, scratch command submission with visible output, host switching with typing reset, and localhost reload. Fixed an invalid placeholder block ID sent during initial pane loading, cleared stale selections during switches, and allowed localhost alongside 127.0.0.1. Local QA evidence: `tmp/qa/rex-fix/` (ignored). Direct keyboard/paste and exhaustive failure scenarios remain unverified.
 
 ## Sources
 

@@ -8,7 +8,7 @@ const token = randomBytes(24).toString('hex');
 const hosts = { mini: 'rex-mini.taila2391.ts.net', spark: 'rex-spark.taila2391.ts.net' };
 const server = createServer(async (req, res) => {
   try {
-    if (req.headers.host !== '127.0.0.1:4317') { res.writeHead(403).end(); return; }
+    if (!['127.0.0.1:4317','localhost:4317'].includes(req.headers.host ?? '')) { res.writeHead(403).end(); return; }
     const url = new URL(req.url!, 'http://127.0.0.1:4317');
     res.setHeader('Cache-Control', 'no-store');
     if (url.pathname.startsWith('/api/')) {
