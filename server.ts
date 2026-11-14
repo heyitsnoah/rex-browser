@@ -34,8 +34,16 @@ const server = createServer(async (req, res) => {
             try { title = (await run(['block','call','-s',session!,'-b',b.block_id,'title'])).title; } catch { /* Closed panes still retain their fallback label. */ }
             return {...b, terminal_title:title, window_label:windows.get(b.window_id), label:[windows.get(b.window_id),title || b.label,b.block_id.slice(-6)].filter(Boolean).join(' / ')};
           }));
-          res.setHeader('Content-Type','application/json');res.end(JSON.stringify({blocks}));return;
+          res.setHeader('Content-Type','application/json');res.end(JSON.stringify({blocks, windows:tabs.windows}));return;
           }
+        case '/api/new-tab': {
+          if(req.method !== 'POST' || !session)throw Error('Select a session');
+          let body='';for await(const chunk of req){body+=chunk;if(body.length>4096)throw Error('Tab name too long');}
+          const data=JSON.parse(body);
+          if(typeof data.text!=='string'||!data.text.trim()||data.text.length>128)throw Error('Enter a tab name (1–128 characters)');
+          args.push('api','call','-s',session,'session.new_window',JSON.stringify({session_id:session,focus:false,window_label:data.text.trim(),layout:{block:{flavor:'com.superlogical.terminal.shell'}}}));
+          break;
+        }
         case '/api/screen':
           if (!session || !block) throw Error('Select a pane');
           args.push('block','call','-s',session,'-b',block,'format',JSON.stringify({format:'vt',extra_cursor:true})); break;

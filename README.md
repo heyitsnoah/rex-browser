@@ -48,3 +48,11 @@ nohup setsid node --experimental-strip-types server.ts > tmp/qa/runtime/server.l
 ```
 
 This does not install a login/startup service. A previous foreground tool-launched server stopped after the tool session ended; detached launch was verified with a subsequent HTTP 200 check.
+
+## Tabs, panes and submission
+
+The tab selector follows Rex windows; each tab displays its tiled terminal panes using Rex's reported geometry. Click a pane header or choose it in the pane selector to target input. Floating layers and nonterminal blocks are not displayed, and Refresh reloads layout/title changes.
+
+Send + Enter submits explicitly without requiring Direct typing; Ctrl/Cmd+Enter in the composer does the same. Successful sends clear the composer, and errors retain the draft with a persistent message. Direct typing controls only keyboard/paste input inside a focused terminal. New tab creates a real Rex shell tab in the selected session, selects it in the browser, and leaves native-client focus unchanged.
+
+Browser regression verified explicit submission, rejected submission/draft retention, new-tab creation in the scratch session, and real two-pane 50/50 geometry. Full terminal sizing, continuous streams, and rich rendering remain future work.
