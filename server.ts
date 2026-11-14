@@ -24,7 +24,18 @@ const server = createServer(async (req, res) => {
         case '/api/sessions': args.push('ls', '--json'); break;
         case '/api/blocks':
           if (!session) throw Error('Select a session');
-          args.push('block','ls','-s',session,'--json'); break;
+          {
+          const run = async (extra: string[]) => JSON.parse((await exec('rex',[...args,...extra],{timeout:15000,maxBuffer:8*1024*1024})).stdout);
+          const [listing, tabs] = await Promise.all([run(['block','ls','-s',session,'--json']),run(['window','ls','-s',session,'--json'])]);
+          const windows = new Map(tabs.windows.map((w: {window_id:string,label:string})=>[w.window_id,w.label]));
+          const blocks = await Promise.all(listing.blocks.map(async (b: {block_id:string,label:string,window_id?:string,creator_name:string})=>{
+            if(b.creator_name !== 'com.superlogical.terminal')return b;
+            let title = '';
+            try { title = (await run(['block','call','-s',session!,'-b',b.block_id,'title'])).title; } catch { /* Closed panes still retain their fallback label. */ }
+            return {...b, terminal_title:title, window_label:windows.get(b.window_id), label:[windows.get(b.window_id),title || b.label,b.block_id.slice(-6)].filter(Boolean).join(' / ')};
+          }));
+          res.setHeader('Content-Type','application/json');res.end(JSON.stringify({blocks}));return;
+          }
         case '/api/screen':
           if (!session || !block) throw Error('Select a pane');
           args.push('block','call','-s',session,'-b',block,'format',JSON.stringify({format:'vt',extra_cursor:true})); break;
