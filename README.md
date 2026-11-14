@@ -39,3 +39,12 @@ SHA-256 verified against official SHA256SUMS:
 `e226900d2126faab515668e5400b69fc78ba3d99aaf9525b325f79707b29bf01`
 
 Ghostty is MIT licensed; see GHOSTTY-LICENSE. Our wrapper follows the official example's C ABI usage. Future work should first validate Rex's data protocol for continuous streaming, then add color/cursor rendering and terminal sizing.
+
+For a background process that survives the launching terminal/tool session:
+
+```sh
+mkdir -p tmp/qa/runtime
+nohup setsid node --experimental-strip-types server.ts > tmp/qa/runtime/server.log 2>&1 < /dev/null &
+```
+
+This does not install a login/startup service. A previous foreground tool-launched server stopped after the tool session ended; detached launch was verified with a subsequent HTTP 200 check.
