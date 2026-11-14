@@ -1,0 +1,41 @@
+# Rex Browser prototype
+
+A local browser frontend for existing Rex sessions, using the official unmodified libghostty-vt 1.0.1 WebAssembly module and a small JavaScript wrapper. No ghostty-web dependency.
+
+## Run
+
+Requires Node with TypeScript stripping, the Rex CLI, and connected Tailscale.
+
+```
+npm start
+```
+
+Open http://127.0.0.1:4317. Select Mini or Spark, a session, and a pane. Input is disabled until Enable typing is checked. Click the terminal for basic keyboard input, or use the text box and Send + Enter. Selecting another target disables typing again.
+
+The bridge binds only to loopback, validates the Host header, and requires a per-process token for API calls. It invokes Rex with argument arrays, never shell interpolation. Do not expose this prototype publicly.
+
+## Scope and limitations
+
+- Snapshot refresh every 800 ms; not a continuous terminal stream. `rex block stream` returned not implemented in the installed CLI.
+- Official Ghostty interprets VT; the wrapper uses its plain-text formatter. Colors, cursor drawing, mouse protocols, IME and resize synchronization are not implemented.
+- Parsing viewport is fixed at 160x48. Remote terminal sizes are not changed. Large scrollback is reprocessed per changed snapshot.
+- Uses the existing servers at rex-mini.taila2391.ts.net and rex-spark.taila2391.ts.net.
+- Browser starts in read-only mode. Sending input affects the real selected pane.
+- No server restart or origin setting change is needed.
+
+## Verification (2026-11-14 Eastern)
+
+Created only scratch session `browser-prototype` on Mini for input testing. Authenticated bridge input returned 200, a subsequent VT snapshot contained REX_BROWSER_OK, and the official WASM successfully parsed and formatted it. Requests without the local token return 403. Browser UI verification remains incomplete: computer-use failed with `Cannot read properties of undefined (reading 'timeoutMs')`.
+
+## Sources
+
+- https://lib.ghostty.org/vt/installing.html
+- https://github.com/ghostty-org/ghostty/tree/vt-1.0.1/example/wasm-vt
+- https://www.superlogical.com/rex/docs/reference/api
+- https://www.superlogical.com/rex/docs/reference/cli
+
+WASM source: https://release.files.ghostty.org/libghostty-vt/1.0.1/ghostty-vt-1.0.1-small.wasm
+SHA-256 verified against official SHA256SUMS:
+`e226900d2126faab515668e5400b69fc78ba3d99aaf9525b325f79707b29bf01`
+
+Ghostty is MIT licensed; see GHOSTTY-LICENSE. Our wrapper follows the official example's C ABI usage. Future work should first validate Rex's data protocol for continuous streaming, then add color/cursor rendering and terminal sizing.
