@@ -5,10 +5,15 @@ import { promisify } from 'node:util';
 import { randomBytes } from 'node:crypto';
 const exec = promisify(execFile);
 const token = randomBytes(24).toString('hex');
+const tailnetHost = process.env.REX_BROWSER_HOST ?? '', tailnetLogin = process.env.REX_BROWSER_LOGIN ?? '';
 let hosts = new Map<string, {id:string,label:string,online:boolean}>();
 const server = createServer(async (req, res) => {
   try {
-    if (!['127.0.0.1:4317','localhost:4317'].includes(req.headers.host ?? '')) { res.writeHead(403).end(); return; }
+    // Loopback is always allowed. A tailnet name is allowed only when REX_BROWSER_HOST and
+    // REX_BROWSER_LOGIN are set and Tailscale Serve reports that login for the request.
+    const requestHost = req.headers.host ?? '';
+    const viaTailnet = Boolean(tailnetHost && tailnetLogin) && requestHost === tailnetHost && req.headers['tailscale-user-login'] === tailnetLogin;
+    if (!['127.0.0.1:4317','localhost:4317'].includes(requestHost) && !viaTailnet) { res.writeHead(403).end(); return; }
     const url = new URL(req.url!, 'http://127.0.0.1:4317');
     res.setHeader('Cache-Control', 'no-store');
     if (url.pathname.startsWith('/api/')) {

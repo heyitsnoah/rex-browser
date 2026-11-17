@@ -10,7 +10,9 @@ Requires Node with TypeScript stripping, the Rex CLI, and connected Tailscale.
 npm start
 ```
 
-Open http://127.0.0.1:4317. Select Mini or Spark, a session, and a pane. Input is disabled until Enable typing is checked. Click the terminal for basic keyboard input, or use the text box and Send + Enter. Selecting another target disables typing again.
+Open http://127.0.0.1:4317. The left rail lists every discovered computer and its sessions; open a session to see its tabs and pick one. Click a pane to target it. The page starts in Read only; switch to Direct typing for basic keyboard input in the focused pane, or use the composer and Send (Ctrl+Enter). Selecting another target returns to Read only. The last tab is reopened on reload, and the theme follows the system until you toggle it.
+
+Visual direction: `DESIGN.md` (Session Rail, Alephic Product). Fonts are inlined in `public/index.html`, so the bridge needs no extra static routes.
 
 The bridge binds only to loopback, validates the Host header, and requires a per-process token for API calls. It invokes Rex with argument arrays, never shell interpolation. Do not expose this prototype publicly.
 
@@ -62,3 +64,14 @@ Browser regression verified explicit submission, rejected submission/draft reten
 The picker reads `tailscale status --json` on page load and Refresh, selecting peers tagged `tag:rex`. It uses their current full DNS names, shows offline peers disabled, and preserves the selected computer/session/tab on Refresh when still available. It does not depend on the `rex hosts` address book or a fixed machine list. The bridge only connects to hosts returned by discovery. Tailscale discovery failures and empty results are shown explicitly. A local-only Rex server without a tagged Tailscale node is not included.
 
 Verified 2026-11-17: browser lists rex-mbp, rex-mini, rex-spark; MacBook sessions and panes load; Refresh preserves selection; an undiscovered host request is rejected. Offline/no-peer branches were not exercised against the live tailnet.
+
+## Serving over Tailscale
+
+The bridge always binds to loopback. To reach it from other devices on the tailnet, run it on a machine with Tailscale Serve in front and set both variables:
+
+```sh
+REX_BROWSER_HOST=<machine>.<tailnet>.ts.net REX_BROWSER_LOGIN=<your Tailscale login> npm start
+tailscale serve --bg 4317
+```
+
+Requests for that host name are accepted only when Tailscale Serve reports that login in `Tailscale-User-Login`; everyone else, including tagged devices with no user, gets 403. With either variable unset, only loopback works. Never use Funnel: the page carries the API token and can type into every pane.
