@@ -48,6 +48,12 @@ const hostLabel = id => state.hosts.find(h => h.id === id)?.label ?? id;
 const sessionLabel = (host, id) => state.sessions.get(host)?.items?.find(s => s.session_id === id)?.label ?? '';
 const terminalPanes = (listing, tab) => listing.blocks.filter(b => b.window_id === tab && b.creator_name === TERMINAL);
 const paneTitle = block => block.terminal_title || block.label;
+// Rex labels a window nobody named "Window <last 8 of its id>". For those, show what is running in it instead.
+function tabLabel(listing, tab) {
+  if (tab.label !== 'Window ' + tab.window_id.slice(-8)) return tab.label;
+  const panes = terminalPanes(listing, tab.window_id);
+  return (panes.find(b => b.block_id === tab.focused_block_id) ?? panes[0])?.terminal_title || tab.label;
+}
 
 // ---- Rail ---------------------------------------------------------------
 
@@ -62,7 +68,7 @@ function renderTree() {
     const rows = [];
     for (const session of entry?.items ?? []) {
       const id = key(host.id, session.session_id), listing = state.listings.get(id), open = state.open.has(id) || Boolean(words && listing?.windows);
-      const tabs = (listing?.windows ?? []).filter(w => matches(w.label) || matches(session.label));
+      const tabs = (listing?.windows ?? []).filter(w => matches(tabLabel(listing, w)) || matches(session.label));
       if (words && !matches(session.label) && !tabs.length) continue;
       rows.push(el('button', {className: 'sess', onclick: () => toggleSession(host.id, session.session_id)}, icon(open ? DOWN : CHEVRON), el('span', {className: 'trunc', textContent: session.label}), listing?.windows ? el('span', {className: 'n', textContent: listing.windows.length}) : null));
       rows.at(-1).setAttribute('aria-expanded', String(open));
@@ -73,7 +79,7 @@ function renderTree() {
       else {
         for (const tab of tabs) {
           const panes = terminalPanes(listing, tab.window_id).length;
-          const row = el('button', {className: 'tab', onclick: () => selectTab(host.id, session.session_id, tab.window_id)}, el('span', {className: 'trunc', textContent: tab.label}), panes > 1 ? el('span', {className: 'n', textContent: panes}) : null);
+          const row = el('button', {className: 'tab', onclick: () => selectTab(host.id, session.session_id, tab.window_id)}, el('span', {className: 'trunc', textContent: tabLabel(listing, tab), title: tab.label}), panes > 1 ? el('span', {className: 'n', textContent: panes}) : null);
           if (state.host === host.id && state.session === session.session_id && state.tab === tab.window_id) row.setAttribute('aria-current', 'true');
           group.append(row);
         }
@@ -183,9 +189,9 @@ function selectTab(host, session, tab) {
   const listing = state.listings.get(key(host, session)), current = listing?.windows?.find(w => w.window_id === tab);
   if (!current) { $('title').textContent = 'Rex'; $('meta').textContent = ''; setState('Idle'); setNotice('No tabs in this session.'); return; }
   const panes = terminalPanes(listing, tab);
-  $('title').textContent = current.label;
+  $('title').textContent = tabLabel(listing, current);
   $('meta').textContent = [hostLabel(host), sessionLabel(host, session), panes.length + (panes.length === 1 ? ' pane' : ' panes')].filter(Boolean).join(' / ');
-  document.title = current.label + ' · Rex';
+  document.title = tabLabel(listing, current) + ' · Rex';
   function draw(node) {
     if (node.split) { draw(node.split.before); draw(node.split.after); return; }
     const item = panes.find(b => b.block_id === node.block_id);
