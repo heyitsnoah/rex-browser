@@ -56,3 +56,9 @@ The tab selector follows Rex windows; each tab displays its tiled terminal panes
 Send + Enter submits explicitly without requiring Direct typing; Ctrl/Cmd+Enter in the composer does the same. Successful sends clear the composer, and errors retain the draft with a persistent message. Direct typing controls only keyboard/paste input inside a focused terminal. New tab creates a real Rex shell tab in the selected session, selects it in the browser, and leaves native-client focus unchanged.
 
 Browser regression verified explicit submission, rejected submission/draft retention, new-tab creation in the scratch session, and real two-pane 50/50 geometry. Full terminal sizing, continuous streams, and rich rendering remain future work.
+
+## Computer discovery
+
+The picker reads `tailscale status --json` on page load and Refresh, selecting peers tagged `tag:rex`. It uses their current full DNS names, shows offline peers disabled, and preserves the selected computer/session/tab on Refresh when still available. It does not depend on the `rex hosts` address book or a fixed machine list. The bridge only connects to hosts returned by discovery. Tailscale discovery failures and empty results are shown explicitly. A local-only Rex server without a tagged Tailscale node is not included.
+
+Verified 2026-11-17: browser lists rex-mbp, rex-mini, rex-spark; MacBook sessions and panes load; Refresh preserves selection; an undiscovered host request is rejected. Offline/no-peer branches were not exercised against the live tailnet.

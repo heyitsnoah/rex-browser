@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 import { randomBytes } from 'node:crypto';
 const exec = promisify(execFile);
 const token = randomBytes(24).toString('hex');
-const hosts = { mini: 'rex-mini.taila2391.ts.net', spark: 'rex-spark.taila2391.ts.net' };
+let hosts = new Map<string, {id:string,label:string,online:boolean}>();
 const server = createServer(async (req, res) => {
   try {
     if (!['127.0.0.1:4317','localhost:4317'].includes(req.headers.host ?? '')) { res.writeHead(403).end(); return; }
@@ -13,9 +13,24 @@ const server = createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     if (url.pathname.startsWith('/api/')) {
       if (req.headers['x-rex-token'] !== token) { res.writeHead(403).end(); return; }
+      if(url.pathname === '/api/hosts') {
+        const result = await exec('tailscale',['status','--json'],{timeout:10000,maxBuffer:8*1024*1024});
+        const state = JSON.parse(result.stdout);
+        if(state.BackendState !== 'Running')throw Error('Tailscale is not connected. Connect it and click Refresh.');
+        const discovered = Object.values(state.Peer ?? {}).flatMap((value: unknown)=>{
+          const peer = value as {DNSName?:string,HostName?:string,Tags?:string[],Online?:boolean};
+          if(!peer.Tags?.includes('tag:rex') || !peer.DNSName)return [];
+          const id=peer.DNSName.replace(/\.$/,'');
+          if(!/^[a-zA-Z0-9.-]+$/.test(id))return [];
+          return [{id,label:peer.HostName || id,online:peer.Online===true}];
+        }).sort((a,b)=>a.label.localeCompare(b.label));
+        hosts = new Map(discovered.map(h=>[h.id,h]));
+        res.setHeader('Content-Type','application/json');res.end(JSON.stringify({hosts:discovered}));return;
+      }
       const host = url.searchParams.get('host');
-      if (host !== 'mini' && host !== 'spark') throw Error('Choose a host');
-      const args = ['-S', hosts[host]];
+      if (!host || !hosts.has(host)) throw Error('Choose a discovered Rex host. Click Refresh to update the list.');
+      if(!hosts.get(host)!.online)throw Error('This Rex host is offline. Click Refresh after it reconnects.');
+      const args = ['-S', host];
       const session = url.searchParams.get('session');
       const block = url.searchParams.get('block');
       const id = /^(session|block):[a-zA-Z0-9-]+$/;

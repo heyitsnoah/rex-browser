@@ -8,10 +8,21 @@ async function api(route,target,text){
 }
 function target(){return {host:host.value,session:session.value,block:block.value};}
 function options(select,items,key){select.replaceChildren(...items.map(item=>new Option(item.label,item[key])));}
-async function loadSessions(){
+async function loadHosts(){
+ const previous=host.value,previousSession=session.value,previousTab=tab.value;
+ const version=++generation;enabled.checked=false;screen.replaceChildren();session.replaceChildren();tab.replaceChildren();block.replaceChildren();host.replaceChildren();status.textContent='Discovering Rex computers…';
+ try{
+  const data=await api('hosts',{});if(version!==generation)return;
+  host.replaceChildren(...data.hosts.map(h=>{const option=new Option(h.label+(h.online?'':' · Offline'),h.id);option.disabled=!h.online;return option;}));
+  host.value=data.hosts.find(h=>h.id===previous&&h.online)?.id ?? data.hosts.find(h=>h.online)?.id ?? '';
+  if(!host.value){status.textContent=data.hosts.length?'All Rex computers are offline.':'No Tailscale computers tagged tag:rex found.';return;}
+  await loadSessions(host.value===previous?{session:previousSession,tab:previousTab}:undefined);
+ }catch(e){if(version===generation)status.textContent='Computer discovery failed: '+e.message;}
+}
+async function loadSessions(preferred){
  const version=++generation;enabled.checked=false;screen.replaceChildren();session.replaceChildren();tab.replaceChildren();block.replaceChildren();status.textContent='Connecting…';
  const data=await api('sessions',{host:host.value});if(version!==generation)return;
- options(session,data.sessions,'session_id');await loadBlocks();
+ options(session,data.sessions,'session_id');if(preferred&&data.sessions.some(s=>s.session_id===preferred.session))session.value=preferred.session;await loadBlocks(preferred?.tab);
 }
 async function loadBlocks(preferred){
  const version=++generation;enabled.checked=false;screen.replaceChildren();tab.replaceChildren();block.replaceChildren();
@@ -74,5 +85,5 @@ document.querySelector('#new-tab').onclick=async()=>{
 };
 function run(fn){fn().catch(e=>feedback.textContent=e.message);}
 host.onchange=()=>run(loadSessions);session.onchange=()=>run(loadBlocks);tab.onchange=showTab;block.onchange=()=>selectPane(block.value);
-document.querySelector('#refresh').onclick=()=>run(()=>loadBlocks(tab.value));
-run(loadSessions);setInterval(update,800);
+document.querySelector('#refresh').onclick=()=>run(loadHosts);
+run(loadHosts);setInterval(update,800);
