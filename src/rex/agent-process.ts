@@ -36,7 +36,7 @@ export async function readAgentProcess(props: {
       processes.map(detectAgent).find((agent) => agent !== undefined) ??
       // Started through a wrapper (`eh pi …`, `zsh -lc 'pi …'`), the agent shares the wrapper's
       // process group, so Rex reports the wrapper; the agent still reports itself via program_status.
-      (await reportedAgent(props)),
+      (await reportedAgent({ ...props, processes })),
     cwd: info.foreground?.cwd ?? info.child?.cwd,
     pids: processes.map((p) => p.pid),
   }
@@ -59,6 +59,7 @@ function detectAgent(proc: z.infer<typeof processSchema>) {
 async function reportedAgent(props: {
   block: string
   host: string
+  processes: z.infer<typeof processSchema>[]
   session: string
 }) {
   try {
@@ -74,13 +75,33 @@ async function reportedAgent(props: {
       ],
       host: props.host,
       schema: z.object({
-        records: z.array(z.object({ effective_app: z.string().optional() })),
+        records: z.array(
+          z.object({
+            effective_app: z.string().optional(),
+            owner: z.object({ name: z.string(), pid: z.number() }).nullish(),
+            updated_at: z.string().optional(),
+          }),
+        ),
       }),
     })
-    const app = status.records.at(-1)?.effective_app ?? ''
-    if (app.startsWith('claude')) return 'claude' as const
-    if (app.startsWith('codex')) return 'codex' as const
-    if (app === 'pi' || app.startsWith('pi-')) return 'pi' as const
+    const live = status.records
+      .filter((record) => {
+        const owner = record.owner
+        if (!owner) return true
+        return props.processes.some(
+          (proc) =>
+            proc.pid === owner.pid && (!proc.name || proc.name === owner.name),
+        )
+      })
+      .toSorted((a, b) =>
+        (b.updated_at ?? '').localeCompare(a.updated_at ?? ''),
+      )
+    for (const record of live) {
+      const app = record.effective_app ?? ''
+      if (app.startsWith('claude')) return 'claude' as const
+      if (app.startsWith('codex')) return 'codex' as const
+      if (app === 'pi' || app.startsWith('pi-')) return 'pi' as const
+    }
     return undefined
   } catch {
     return undefined

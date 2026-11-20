@@ -220,4 +220,55 @@ test('does not false-positive on Pi slash autocomplete or settings', () => {
   Type to search · Enter/Space to change · Esc to cancel
 ────────────────────────────────────────────────────────────────────────────────`
   expect(detectPrompt(settings)).toBeUndefined()
+
+  // A numbered list in recent scrollback above /settings must not trigger detectNumberedPrompt.
+  const settingsWithScrollback = `Here are two steps:
+  1. Keep the existing API
+  2. Migrate to the new endpoint
+
+${settings}`
+  expect(detectPrompt(settingsWithScrollback)).toBeUndefined()
+})
+
+test('Pi /thinking stays accurate with scrollback numbered lists and cursor off the active level', () => {
+  const screen = `Here are two options:
+  1. Keep the existing API
+  2. Migrate to the new endpoint
+
+────────────────────────────────────────────────────────────────────────────────
+
+Thinking Level
+
+Shift+Tab cycles thinking levels in-session
+
+>
+
+    minimal   Very brief reasoning (~1k tokens)
+    low       Light reasoning (~2k tokens)
+  ✓ medium    Moderate reasoning (~8k tokens) · default
+→   high      Deep reasoning (~16k tokens)
+    xhigh     Extra-high reasoning (~32k tokens)
+    max       Maximum reasoning
+
+  Enter to select · Ctrl+S to set as default · Escape/Ctrl+C to cancel
+────────────────────────────────────────────────────────────────────────────────`
+  const prompt = detectPrompt(screen)
+  expect(prompt?.question).toBe(
+    'Thinking Level Shift+Tab cycles thinking levels in-session',
+  )
+  expect(
+    prompt?.options.map((o) => [o.label, o.detail, o.current, o.send]),
+  ).toEqual([
+    [
+      'minimal',
+      'Very brief reasoning (~1k tokens)',
+      false,
+      '\x1b[A\x1b[A\x1b[A\r',
+    ],
+    ['low', 'Light reasoning (~2k tokens)', false, '\x1b[A\x1b[A\r'],
+    ['medium', 'Moderate reasoning (~8k tokens) · default', false, '\x1b[A\r'],
+    ['high', 'Deep reasoning (~16k tokens)', true, '\r'],
+    ['xhigh', 'Extra-high reasoning (~32k tokens)', false, '\x1b[B\r'],
+    ['max', 'Maximum reasoning', false, '\x1b[B\x1b[B\r'],
+  ])
 })

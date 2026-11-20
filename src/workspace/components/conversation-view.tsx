@@ -298,7 +298,7 @@ function NoteBlock(props: { readonly error: boolean; readonly text: string }) {
     .trim()
   return (
     <details className="group mb-4">
-      <summary className="text-muted-foreground hover:bg-subtle hover:text-foreground -ml-1 flex min-h-7 cursor-pointer list-none items-center gap-1.5 rounded-md px-1 text-sm italic">
+      <summary className="text-muted-foreground hover:bg-subtle hover:text-foreground -ml-1 flex min-h-7 cursor-pointer list-none items-center gap-1.5 rounded-md px-1 text-sm italic max-md:min-h-9">
         <ChevronRightIcon className="size-3.5 shrink-0 transition-transform group-open:rotate-90" />
         <span className="truncate">{title || 'Note'}</span>
       </summary>

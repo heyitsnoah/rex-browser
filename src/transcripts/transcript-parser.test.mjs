@@ -1059,6 +1059,33 @@ test('Pi working state tracks user, toolUse, toolResult, stop, error, Esc abort,
     timestamp: '2026-11-20T20:25:05.000Z',
     type: 'message',
   }
+  const failedTurn = {
+    id: 'a4',
+    message: {
+      content: [],
+      errorMessage: '429 rate limited',
+      model: 'anthropic/claude-haiku-4.5',
+      role: 'assistant',
+      stopReason: 'error',
+      thinkingLevel: 'low',
+      usage: { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 },
+    },
+    parentId: 'r1',
+    timestamp: '2026-11-20T20:25:10.000Z',
+    type: 'message',
+  }
+  const bang = {
+    id: 'b1',
+    message: {
+      command: 'echo hi',
+      exitCode: 0,
+      output: 'hi\n',
+      role: 'bashExecution',
+    },
+    parentId: 'a2',
+    timestamp: '2026-11-20T20:25:15.000Z',
+    type: 'message',
+  }
   assert.equal(parseTranscript(jsonl(base), 'pi').working, false)
   const afterUser = parseTranscript(jsonl([...base, user]), 'pi')
   assert.equal(afterUser.working, true)
@@ -1096,6 +1123,19 @@ test('Pi working state tracks user, toolUse, toolResult, stop, error, Esc abort,
     text: 'Stopped.',
     time: '2026-11-20T20:25:05.000Z',
   })
+  const afterError = parseTranscript(
+    jsonl([...base, user, toolUse, toolResult, failedTurn]),
+    'pi',
+  )
+  assert.equal(afterError.working, false)
+  assert.equal(afterError.status.context, 26910)
+  assert.equal(afterError.items.at(-1)?.role, 'error')
+  const afterBang = parseTranscript(
+    jsonl([...base, user, toolUse, toolResult, done, bang]),
+    'pi',
+  )
+  assert.equal(afterBang.working, false)
+  assert.equal(afterBang.status.context, 27000)
 })
 
 test('Pi bashExecution records parse native !, !!, failed, silent, and Rex Browser run hand-back', () => {

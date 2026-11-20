@@ -10,7 +10,7 @@ import {
 } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import path from 'node:path'
-// Exported as one function so the same code runs locally, over SSH, or in a hidden Rex terminal (see transcript-access.ts).
+// Bundled with transcript-parser.mjs and transcript-program.mjs to run locally, over SSH, or in a hidden Rex terminal (see transcript-access.ts).
 export async function readTranscripts(request) {
   if (!['claude', 'codex', 'pi'].includes(request.agent)) {
     throw Error('Unknown agent')
@@ -71,72 +71,19 @@ export async function readTranscripts(request) {
     pids.push(...children)
     edge = children
   }
-  let exactId = ''
-  const exactPaths = []
-  const launchCwds = new Set()
-  for (const pid of pids) {
-    if (request.agent === 'claude') {
-      try {
-        const info = JSON.parse(
-          await readFile(
-            path.join(home, '.claude/sessions', `${pid}.json`),
-            'utf8',
-          ),
-        )
-        if (info.sessionId) exactId = info.sessionId
-      } catch {
-        // Optional metadata: matching falls back to the project directory.
-      }
-    } else if (request.agent === 'pi') {
-      // Pi passes PI_SESSION_FILE / PI_SESSION_ID to child processes it spawns (e.g. bash tools),
-      // and its own PWD records the folder it started in (even if later moved by `ax wt`).
-      const env = await readFile(`/proc/${pid}/environ`, 'utf8').catch(() => '')
-      for (const entry of env.split('\0')) {
-        if (entry.startsWith('PI_SESSION_FILE=')) {
-          const p = entry.slice('PI_SESSION_FILE='.length)
-          if (p) exactPaths.push(p)
-        } else if (entry.startsWith('PI_SESSION_ID=')) {
-          const id = entry.slice('PI_SESSION_ID='.length)
-          if (id) exactId = id
-        } else if (entry.startsWith('PWD=')) {
-          const pwd = entry.slice('PWD='.length)
-          if (pwd) launchCwds.add(pwd)
-        }
-      }
-    }
-  }
-  const openPaths = [...exactPaths]
-  try {
-    if (pids.length) {
-      openPaths.push(
-        ...execFileSync('lsof', ['-a', '-p', pids.join(','), '-Fn'], {
-          encoding: 'utf8',
-          stdio: ['ignore', 'pipe', 'ignore'],
-          timeout: 2000,
-        })
-          .split('\n')
-          .filter((l) => l.startsWith('n'))
-          .map((l) => l.slice(1)),
-      )
-    }
-  } catch {
-    // lsof is often missing on Linux; /proc/<pid>/fd lists the same open files.
-    for (const pid of pids) {
-      for (const fd of await readdir(`/proc/${pid}/fd`).catch(() => [])) {
-        const target = await readlink(`/proc/${pid}/fd/${fd}`).catch(() => '')
-        if (target.endsWith('.jsonl')) openPaths.push(target)
-      }
-    }
-  }
   // When the agent process started (via ps; works on Linux and macOS). For Pi, prefer the actual
   // `pi` child over a wrapper (`eh`, `zsh`), and pick up any explicit `--session` / `--session-id`.
   let started = 0
   let agentPid = pids[0] || 0
+  let exactId = ''
+  const exactPaths = []
+  const launchCwds = new Set()
+  const psByPid = new Map()
   try {
     if (pids.length) {
       const lines = execFileSync(
         'ps',
-        ['-o', 'pid=,etime=,comm=,args=', '-p', pids.join(',')],
+        ['-o', 'pid=,etime=,args=', '-p', pids.join(',')],
         {
           encoding: 'utf8',
           stdio: ['ignore', 'pipe', 'ignore'],
@@ -144,28 +91,24 @@ export async function readTranscripts(request) {
         },
       )
         .split('\n')
-        .map((line) => /^\s*(\d+)\s+(\S+)\s+(\S+)\s*(.*)$/.exec(line))
+        .map((line) => /^\s*(\d+)\s+(\S+)\s+(.+)$/.exec(line))
         .filter(Boolean)
+      for (const m of lines) psByPid.set(Number(m[1]), m[3])
       const piRow =
-        request.agent === 'pi' &&
-        lines.find(
-          (m) =>
-            m[3] === 'pi' ||
-            /(?:^|[/\s])pi(?:$|[/\s])|pi-coding-agent/i.test(m[4]),
-        )
+        request.agent === 'pi' && lines.find((m) => isPiCommand(m[3]))
       const picked =
         piRow || lines.find((m) => Number(m[1]) === pids[0]) || lines[0]
       if (picked) {
         agentPid = Number(picked[1])
         started = parseEtime(picked[2])
         if (request.agent === 'pi') {
-          const args = picked[4] || ''
+          const args = picked[3] || ''
           const sessionFile =
             /(?:^|\s)--session(?:=|\s+)(?:"([^"]+)"|'([^']+)'|(\S+))/.exec(args)
           const sessionPath =
             sessionFile?.[1] || sessionFile?.[2] || sessionFile?.[3]
           if (sessionPath) {
-            openPaths.push(
+            exactPaths.push(
               path.isAbsolute(sessionPath)
                 ? sessionPath
                 : path.resolve(request.cwd || home, sessionPath),
@@ -178,6 +121,106 @@ export async function readTranscripts(request) {
     }
   } catch {
     // Optional metadata: matching falls back to the project directory.
+  }
+  let fdPids = pids
+  if (request.agent === 'claude') {
+    for (const pid of pids) {
+      try {
+        const info = JSON.parse(
+          await readFile(
+            path.join(home, '.claude/sessions', `${pid}.json`),
+            'utf8',
+          ),
+        )
+        if (info.sessionId) exactId = info.sessionId
+      } catch {
+        // Optional metadata: matching falls back to the project directory.
+      }
+    }
+  } else if (request.agent === 'pi' && agentPid) {
+    // Pi's own PWD records the folder it started in (even if a tool/worktree moves it later).
+    const selfEnv = await readFile(`/proc/${agentPid}/environ`, 'utf8').catch(
+      () => '',
+    )
+    for (const entry of selfEnv.split('\0')) {
+      if (entry.startsWith('PWD=')) {
+        const pwd = entry.slice('PWD='.length)
+        if (pwd) launchCwds.add(pwd)
+      }
+    }
+    // Pi passes PI_SESSION_FILE / PI_SESSION_ID to direct non-Pi children (e.g. bash tools).
+    // Skip nested `pi` subagents so a subagent's session never overwrites the parent pane.
+    let directChildren = []
+    try {
+      directChildren = execFileSync('pgrep', ['-P', String(agentPid)], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: 2000,
+      })
+        .split('\n')
+        .map(Number)
+        .filter((p) => p > 0)
+    } catch {
+      // No children.
+    }
+    if (directChildren.length) {
+      try {
+        const childRows = execFileSync(
+          'ps',
+          ['-o', 'pid=,args=', '-p', directChildren.join(',')],
+          {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'ignore'],
+            timeout: 2000,
+          },
+        )
+          .split('\n')
+          .map((line) => /^\s*(\d+)\s+(.+)$/.exec(line))
+          .filter(Boolean)
+        for (const m of childRows) psByPid.set(Number(m[1]), m[2])
+      } catch {
+        // Best-effort filter.
+      }
+    }
+    const toolChildren = directChildren.filter(
+      (pid) => !isPiCommand(psByPid.get(pid) || ''),
+    )
+    fdPids = [agentPid, ...toolChildren]
+    for (const pid of toolChildren) {
+      const env = await readFile(`/proc/${pid}/environ`, 'utf8').catch(() => '')
+      for (const entry of env.split('\0')) {
+        if (entry.startsWith('PI_SESSION_FILE=')) {
+          const p = entry.slice('PI_SESSION_FILE='.length)
+          if (p) exactPaths.push(p)
+        } else if (entry.startsWith('PI_SESSION_ID=')) {
+          const id = entry.slice('PI_SESSION_ID='.length)
+          if (id) exactId = id
+        }
+      }
+    }
+  }
+  const openPaths = [...exactPaths]
+  try {
+    if (fdPids.length) {
+      openPaths.push(
+        ...execFileSync('lsof', ['-a', '-p', fdPids.join(','), '-Fn'], {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+          timeout: 2000,
+        })
+          .split('\n')
+          .filter((l) => l.startsWith('n'))
+          .map((l) => l.slice(1)),
+      )
+    }
+  } catch {
+    // lsof is often missing on Linux; /proc/<pid>/fd lists the same open files.
+    for (const pid of fdPids) {
+      for (const fd of await readdir(`/proc/${pid}/fd`).catch(() => [])) {
+        const target = await readlink(`/proc/${pid}/fd/${fd}`).catch(() => '')
+        if (target.endsWith('.jsonl')) openPaths.push(target)
+      }
+    }
   }
   const canonicalCwd = request.cwd
     ? await realpath(request.cwd).catch(() => request.cwd)
@@ -251,6 +294,7 @@ export async function readTranscripts(request) {
       const otherSameCwdStarts = await otherPiStartsInCwd({
         canonicalCwd,
         excludePids: new Set([...pids, agentPid]),
+        launchCwds,
         requestCwd: request.cwd,
       })
       fallback = choosePiCandidate({
@@ -424,18 +468,36 @@ export async function readTranscripts(request) {
   }
 }
 
-async function otherPiStartsInCwd({ canonicalCwd, excludePids, requestCwd }) {
+function isPiCommand(args) {
+  const argv0 = String(args || '')
+    .trim()
+    .split(/\s+/)[0]
+  if (!argv0) return false
+  const bin = path.basename(argv0)
+  if (bin === 'pi') return true
+  return (
+    (bin === 'node' || bin === 'bun' || bin === 'deno') &&
+    /pi-coding-agent/i.test(args)
+  )
+}
+
+async function otherPiStartsInCwd({
+  canonicalCwd,
+  excludePids,
+  launchCwds,
+  requestCwd,
+}) {
   const starts = []
   let rows
   try {
-    rows = execFileSync('ps', ['-eo', 'pid=,etime=,comm='], {
+    rows = execFileSync('ps', ['-eo', 'pid=,etime=,args='], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
       timeout: 2000,
     })
       .split('\n')
-      .map((line) => /^\s*(\d+)\s+(\S+)\s+(\S+)\s*$/.exec(line))
-      .filter((m) => m && m[3] === 'pi' && !excludePids.has(Number(m[1])))
+      .map((line) => /^\s*(\d+)\s+(\S+)\s+(.+)$/.exec(line))
+      .filter((m) => m && isPiCommand(m[3]) && !excludePids.has(Number(m[1])))
   } catch {
     return starts
   }
@@ -462,7 +524,12 @@ async function otherPiStartsInCwd({ canonicalCwd, excludePids, requestCwd }) {
     }
     if (pidCwd) {
       const canonicalPidCwd = await realpath(pidCwd).catch(() => pidCwd)
-      if (pidCwd !== requestCwd && canonicalPidCwd !== canonicalCwd) {
+      if (
+        pidCwd !== requestCwd &&
+        canonicalPidCwd !== canonicalCwd &&
+        !launchCwds.has(pidCwd) &&
+        !launchCwds.has(canonicalPidCwd)
+      ) {
         continue
       }
     }

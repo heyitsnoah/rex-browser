@@ -17,7 +17,7 @@ export function detectPrompt(screen: string) {
         .trimEnd(),
     )
     .slice(-60)
-  return detectNumberedPrompt(lines) ?? detectArrowPrompt(lines)
+  return detectArrowPrompt(lines) ?? detectNumberedPrompt(lines)
 }
 
 function detectNumberedPrompt(lines: string[]) {
@@ -55,7 +55,9 @@ function detectNumberedPrompt(lines: string[]) {
       last.detail = `${last.detail} ${line.trim()}`.trim()
     }
   }
-  if (options.length < 2) return undefined
+  if (options.length < 2 || !options.some((option) => option.current)) {
+    return undefined
+  }
   const question: string[] = []
   for (let index = first - 1; index >= Math.max(0, first - 12); index--) {
     const text = (lines[index] ?? '').trim()
@@ -102,7 +104,7 @@ function detectArrowPrompt(lines: string[]) {
     const current = index === currentIndex
     const cleaned = line
       .replace(/^\s*→\s*/, '')
-      .replace(/^✓\s*/, '')
+      .replace(/^\s*✓\s*/, '')
       .trim()
     const split = /^(\S+)\s{2,}(.+)$/.exec(cleaned)
     const delta = index - currentIndex
