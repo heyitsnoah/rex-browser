@@ -45,7 +45,8 @@ export function Composer(props: {
   const [menuIndex, setMenuIndex] = useState(0)
   const [menuClosed, setMenuClosed] = useState(false)
   const files = useRef<HTMLInputElement>(null)
-  const slashQuery = shell ? undefined : /^\/(\S*)$/.exec(text)?.[1]
+  // The /word being typed at the end, at the start or after a space, so several skills can share a message.
+  const slashQuery = shell ? undefined : /(?:^|\s)\/(\S*)$/.exec(text)?.[1]
   const commands = useSlashCommands(
     props.target,
     props.agentLabel !== undefined && slashQuery !== undefined,
@@ -71,7 +72,7 @@ export function Composer(props: {
     (text.trim() !== '' || ready.length > 0)
 
   function pick(name: string) {
-    setText(`/${name} `)
+    setText((current) => current.replace(/\/\S*$/, `/${name} `))
     setMenuClosed(true)
   }
 
