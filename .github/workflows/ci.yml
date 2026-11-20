@@ -1,0 +1,41 @@
+name: CI
+
+# Branch pushes don't run CI: a new branch with no commits of its own re-runs
+# CI on main's commit, so a flaky failure there marks main red, and a PR branch
+# would run twice. Open a PR, or use workflow_dispatch.
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          cache: 'pnpm'
+          node-version-file: 'package.json'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Prettier
+        run: pnpm prettier --check .
+
+      - name: ESLint
+        run: pnpm eslint
+
+      - name: TypeScript
+        run: pnpm tsc --noEmit
+
+      - name: Tests
+        run: pnpm test -- --run

@@ -1,0 +1,144 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Tokens: Alephic Product, see DESIGN.md. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-tray: var(--tray);
+  --color-tray-foreground: var(--tray-foreground);
+  --color-selected: var(--selected);
+  --color-note-soft: var(--note-soft);
+  --color-subtle: var(--subtle);
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.25);
+  --radius-2xl: calc(var(--radius) * 2);
+}
+
+:root {
+  --radius: 0.5rem;
+  --background: #ffffff;
+  --foreground: #231f20;
+  --card: #ffffff;
+  --card-foreground: #231f20;
+  --popover: #ffffff;
+  --popover-foreground: #231f20;
+  --primary: #23602b;
+  --primary-foreground: #ffffff;
+  --secondary: #e3e6e3;
+  --secondary-foreground: #231f20;
+  --muted: #e3e6e3;
+  --muted-foreground: #575c58;
+  --accent: #e3e6e3;
+  --accent-foreground: #231f20;
+  --destructive: #b42318;
+  --border: #d3d8d4;
+  --input: #858b86;
+  --ring: #23602b;
+  --tray: #231f20;
+  --tray-foreground: #f4f4f2;
+  --selected: #e4f1e5;
+  --note-soft: #e1f3e3;
+  --subtle: #f3f5f3;
+}
+
+.dark {
+  --background: #161515;
+  --foreground: #ededeb;
+  --card: #211f20;
+  --card-foreground: #ededeb;
+  --popover: #211f20;
+  --popover-foreground: #ededeb;
+  --primary: #45bf55;
+  --primary-foreground: #0f1f12;
+  --secondary: #2a2829;
+  --secondary-foreground: #ededeb;
+  --muted: #2a2829;
+  --muted-foreground: #a6aba7;
+  --accent: #2a2829;
+  --accent-foreground: #ededeb;
+  --destructive: #ff8f8f;
+  --border: #363334;
+  --input: #6e6b6c;
+  --ring: #8fd999;
+  --tray: #0b0a0a;
+  --tray-foreground: #ededeb;
+  --selected: #1c2b1e;
+  --note-soft: #1f3323;
+  --subtle: #1c1b1b;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+@keyframes pulse-dot {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes shine {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@utility animate-pulse-dot {
+  animation: pulse-dot 1.6s cubic-bezier(0.23, 1, 0.32, 1) infinite;
+}
+
+/* The live step's label: a slow sweep of foreground across muted text. */
+@utility text-shine {
+  background: linear-gradient(
+    90deg,
+    var(--muted-foreground) 0%,
+    var(--foreground) 50%,
+    var(--muted-foreground) 100%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  color: transparent;
+  animation: shine 2.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse-dot,
+  .text-shine {
+    animation: none;
+  }
+  .text-shine {
+    color: var(--foreground);
+    background: none;
+  }
+}
