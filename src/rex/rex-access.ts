@@ -5,13 +5,24 @@ import { headers } from 'next/headers'
 import { env } from '@/env'
 
 /**
- * Loopback is always allowed. The tailnet name is allowed only when
+ * A loopback request is always allowed. The tailnet name is allowed only when
  * REX_BROWSER_HOST and REX_BROWSER_LOGIN are set and Tailscale Serve reports
  * that login. Checking Host also blocks DNS rebinding.
+ *
+ * Tailscale Serve passes the client's Host header through unchanged, so Host
+ * alone can't prove a request is local: Serve also sets X-Forwarded-For to the
+ * tailnet client's address, which the client can't remove.
  */
 export function isAllowedRequest(requestHeaders: Headers) {
   const host = requestHeaders.get('host') ?? ''
-  if (/^(127\.0\.0\.1|localhost):\d+$/.test(host)) return true
+  const forwardedFor = (requestHeaders.get('x-forwarded-for') ?? '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+  const local =
+    /^(127\.0\.0\.1|localhost):\d+$/.test(host) &&
+    forwardedFor.every((address) => /^(127\.|::1$|::ffff:127\.)/.test(address))
+  if (local) return true
   return (
     env.REX_BROWSER_HOST !== undefined &&
     env.REX_BROWSER_LOGIN !== undefined &&
