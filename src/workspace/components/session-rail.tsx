@@ -28,6 +28,7 @@ export function SessionRail(props: {
   readonly hosts: RexHost[] | undefined
   readonly hostsError: string | undefined
   readonly onClose: () => void
+  readonly onCloseTab: (selection: Selection) => Promise<void>
   readonly onNewTab: (props: {
     host: string
     name: string
@@ -95,6 +96,7 @@ export function SessionRail(props: {
             filter={filter.toLowerCase()}
             host={host}
             key={host.id}
+            onCloseTab={props.onCloseTab}
             onNewTab={props.onNewTab}
             onSelect={props.onSelect}
             selection={props.selection}
@@ -108,6 +110,7 @@ export function SessionRail(props: {
 function HostSection(props: {
   readonly filter: string
   readonly host: RexHost
+  readonly onCloseTab: (selection: Selection) => Promise<void>
   readonly onNewTab: (props: {
     host: string
     name: string
@@ -145,6 +148,7 @@ function HostSection(props: {
           host={props.host.id}
           key={session.session_id}
           label={session.label}
+          onCloseTab={props.onCloseTab}
           onNewTab={props.onNewTab}
           onSelect={props.onSelect}
           selection={props.selection}
@@ -159,6 +163,7 @@ function SessionRow(props: {
   readonly filter: string
   readonly host: string
   readonly label: string
+  readonly onCloseTab: (selection: Selection) => Promise<void>
   readonly onNewTab: (props: {
     host: string
     name: string
@@ -173,6 +178,8 @@ function SessionRow(props: {
     props.selection.session === props.session
   const [open, setOpen] = useState(selected)
   const [naming, setNaming] = useState(false)
+  // The tab whose close is waiting for a second click.
+  const [closing, setClosing] = useState<string>()
   const tabs = useTabs(
     props.host,
     open || selected || props.filter !== '' ? props.session : undefined,
@@ -212,21 +219,65 @@ function SessionRow(props: {
           {shownTabs?.map((tab) => {
             const current = selected && props.selection.tab === tab.id
             return (
-              <button
-                aria-current={current}
-                className={`flex h-7.5 w-full items-center rounded px-2 text-left text-[0.8rem] max-md:h-11 max-md:text-[0.95rem] ${current ? 'bg-selected font-medium' : 'hover:bg-muted'}`}
-                key={tab.id}
-                onClick={() =>
-                  props.onSelect({
-                    host: props.host,
-                    session: props.session,
-                    tab: tab.id,
-                  })
-                }
-                type="button"
-              >
-                <span className="truncate">{tab.label}</span>
-              </button>
+              <div className="group relative" key={tab.id}>
+                <button
+                  aria-current={current}
+                  className={`flex h-7.5 w-full items-center rounded px-2 pr-8 text-left text-[0.8rem] max-md:h-11 max-md:text-[0.95rem] ${current ? 'bg-selected font-medium' : 'hover:bg-muted'}`}
+                  onClick={() =>
+                    props.onSelect({
+                      host: props.host,
+                      session: props.session,
+                      tab: tab.id,
+                    })
+                  }
+                  type="button"
+                >
+                  <span className="truncate">{tab.label}</span>
+                </button>
+                {closing === tab.id ? (
+                  <div className="bg-card absolute inset-0 flex items-center gap-1.5 rounded border px-2 text-[0.75rem]">
+                    <span className="text-muted-foreground mr-auto truncate">
+                      Close tab? Its programs stop.
+                    </span>
+                    <button
+                      className="bg-destructive rounded px-1.5 py-0.5 font-medium text-white"
+                      onClick={() => {
+                        setClosing(undefined)
+                        props
+                          .onCloseTab({
+                            host: props.host,
+                            session: props.session,
+                            tab: tab.id,
+                          })
+                          .catch((error: unknown) =>
+                            toast.error(
+                              `Close failed: ${error instanceof Error ? error.message : 'unknown error'}`,
+                            ),
+                          )
+                      }}
+                      type="button"
+                    >
+                      Close
+                    </button>
+                    <button
+                      className="hover:bg-muted rounded px-1.5 py-0.5"
+                      onClick={() => setClosing(undefined)}
+                      type="button"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    aria-label={`Close tab ${tab.label}`}
+                    className={`text-muted-foreground hover:text-foreground hover:bg-muted absolute top-1/2 right-1 grid size-6 -translate-y-1/2 place-items-center rounded group-hover:opacity-100 focus-visible:opacity-100 max-md:size-9 max-md:opacity-100 ${current ? 'opacity-100' : 'opacity-0'}`}
+                    onClick={() => setClosing(tab.id)}
+                    type="button"
+                  >
+                    <XIcon className="size-3.5" />
+                  </button>
+                )}
+              </div>
             )
           })}
           {naming ? (

@@ -2,157 +2,106 @@
   {
     "kind": "text",
     "op": "add",
-    "size": "xl",
-    "text": "Rex transcript view: three directions",
-    "x": 0,
-    "y": -150
-  },
-  {
-    "kind": "text",
-    "op": "add",
-    "size": "m",
-    "text": "Same rail, header, composer and Alephic Product palette in all three; only the transcript, the Terminal switch and subagents differ. Real turns from this session. Open a tile for full size; the sun icon toggles dark.",
-    "x": 0,
-    "y": -70
-  },
-  {
-    "kind": "text",
-    "op": "add",
-    "ref": "zero",
     "size": "l",
-    "text": "0 · Today (conversation, then terminal)",
+    "text": "! command \u2014 step one of Rex as the harness. Type !cmd in the web box: Rex runs it in a new visible tab on the pane's computer, in the agent's folder, then hands the output to Claude Code / Codex / Pi. Three ways it can read in the thread:",
     "x": 0,
-    "y": 450
+    "y": -140
   },
   {
-    "artifact": "641b1d50-eef8-4bc6-8f02-251bf361b0c3",
+    "artifact": "d5a570cd-7534-495f-81ac-c401e7d6d396",
     "kind": "tile",
     "op": "add",
-    "ref": "a",
-    "x": 720,
-    "y": 40
-  },
-  { "height": 420, "id": "a", "op": "resize", "width": 640, "x": 720, "y": 40 },
-  {
-    "kind": "text",
-    "op": "add",
-    "ref": "a-name",
-    "size": "l",
-    "text": "A · Thread",
-    "x": 720,
-    "y": 490
+    "ref": "t1",
+    "x": 0,
+    "y": 0
   },
   {
-    "fill": "green",
-    "kind": "note",
-    "op": "add",
-    "ref": "a-wins",
-    "text": "Wins when: you mostly read what the agent said. Tool runs collapse to one quiet line, the subagent is a live row where it was launched, and Terminal is a drawer (Ctrl+J), like T3 Code, Codex and Claude desktop.",
-    "x": 720,
-    "y": 550
-  },
-  {
-    "fill": "yellow",
-    "kind": "note",
-    "op": "add",
-    "ref": "a-cost",
-    "text": "Cost: least information at a glance. Seeing what ran means a click, and on a wide screen the 736px column leaves empty margins.",
-    "x": 970,
-    "y": 550
-  },
-  {
-    "artifact": "a33d0497-47a7-4b34-b4c0-422bb5ae6285",
-    "kind": "tile",
-    "op": "add",
-    "ref": "b",
-    "x": 1440,
-    "y": 40
-  },
-  {
-    "height": 420,
-    "id": "b",
+    "height": 720,
+    "id": "t1",
     "op": "resize",
-    "width": 640,
-    "x": 1440,
-    "y": 40
+    "width": 720,
+    "x": 0,
+    "y": 0
   },
   {
-    "kind": "text",
-    "op": "add",
-    "ref": "b-name",
-    "size": "l",
-    "text": "B · Ledger",
-    "x": 1440,
-    "y": 490
-  },
-  {
-    "fill": "green",
-    "kind": "note",
-    "op": "add",
-    "ref": "b-wins",
-    "text": "Wins when: you supervise. Times, per-turn tool counts and failures stay visible, running subagents sit in a strip that never scrolls away, and the terminal stays open beside the conversation.",
-    "x": 1440,
-    "y": 550
-  },
-  {
-    "fill": "yellow",
-    "kind": "note",
-    "op": "add",
-    "ref": "b-cost",
-    "text": "Cost: busiest of the three; the split halves the reading width, and the chips read like a dashboard.",
-    "x": 1690,
-    "y": 550
-  },
-  {
-    "artifact": "584c63b8-45e8-427b-8055-26700d6cc6d1",
+    "artifact": "5e4ad69d-a024-4927-b05b-f5efcb4d6494",
     "kind": "tile",
     "op": "add",
-    "ref": "c",
-    "x": 2160,
-    "y": 40
+    "ref": "t2",
+    "x": 780,
+    "y": 0
   },
   {
-    "height": 420,
-    "id": "c",
+    "height": 720,
+    "id": "t2",
     "op": "resize",
-    "width": 640,
-    "x": 2160,
-    "y": 40
+    "width": 720,
+    "x": 780,
+    "y": 0
   },
   {
-    "kind": "text",
+    "artifact": "8ecc5aa6-f406-4995-b71a-23dc0a1b6ec5",
+    "kind": "tile",
     "op": "add",
-    "ref": "c-name",
-    "size": "l",
-    "text": "C · Turn Cards",
-    "x": 2160,
-    "y": 490
+    "ref": "t3",
+    "x": 1560,
+    "y": 0
+  },
+  {
+    "height": 720,
+    "id": "t3",
+    "op": "resize",
+    "width": 720,
+    "x": 1560,
+    "y": 0
+  },
+  {
+    "kind": "note",
+    "op": "add",
+    "ref": "n4",
+    "text": "A \u00b7 Inline run\nWins when: ! is a convenience and the agent stays the star; no new vocabulary.\nCost: Rex is invisible \u2014 looks like the agent ran it. Doesn't build toward Rex as the harness.",
+    "x": 0,
+    "y": 760
+  },
+  {
+    "height": 170,
+    "id": "n4",
+    "op": "resize",
+    "width": 720,
+    "x": 0,
+    "y": 760
+  },
+  {
+    "kind": "note",
+    "op": "add",
+    "ref": "n5",
+    "text": "B \u00b7 Tab-first\nWins when: commands are mostly interactive (logins, prompts) and the Rex tab is the place you want to be.\nCost: context switch every time; the thread only gets a receipt.",
+    "x": 780,
+    "y": 760
+  },
+  {
+    "height": 170,
+    "id": "n5",
+    "op": "resize",
+    "width": 720,
+    "x": 780,
+    "y": 760
   },
   {
     "fill": "green",
     "kind": "note",
     "op": "add",
-    "ref": "c-wins",
-    "text": "Wins when: you come back to a long session. Each turn is one object (prompt, work timeline, answer), old turns fold to a line, and a subagent nests as a child card under the step that launched it.",
-    "x": 2160,
-    "y": 550
+    "ref": "n6",
+    "text": "C \u00b7 Rex speaks (recommended)\nWins when: Rex is meant to become the harness \u2014 Rex gets its own mark and voice in the thread, answers prompts inline, and the hand-off to the agent is explicit. Scales to future Rex-owned features (routing between agents, Rex memory, /rex commands).\nCost: a third participant to define and keep consistent.",
+    "x": 1560,
+    "y": 760
   },
   {
-    "fill": "yellow",
-    "kind": "note",
-    "op": "add",
-    "ref": "c-cost",
-    "text": "Cost: most chrome per turn; cards and shadows cost height, and Conversation/Terminal tabs keep the swap model instead of showing both.",
-    "x": 2410,
-    "y": 550
-  },
-  {
-    "fill": "blue",
-    "kind": "note",
-    "op": "add",
-    "ref": "pick",
-    "text": "My pick: A · Thread. Your complaint was that the transcript reads like a debug log; A is the quietest fix and matches the agent apps you already use. I'd borrow C's nested subagent steps into A's live row.",
-    "x": 2880,
-    "y": 40
+    "height": 200,
+    "id": "n6",
+    "op": "resize",
+    "width": 720,
+    "x": 1560,
+    "y": 760
   }
 ]

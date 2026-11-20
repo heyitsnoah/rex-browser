@@ -1,0 +1,394 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>B · Tab-first</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #fff;
+        --fg: #231f20;
+        --muted: #575c58;
+        --border: #d3d8d4;
+        --subtle: #f3f5f3;
+        --note: #e1f3e3;
+        --primary: #23602b;
+        --pfg: #fff;
+        --card: #fff;
+        --tray: #231f20;
+        --trayfg: #f4f4f2;
+        --warn: #8a5a00;
+      }
+      .dark {
+        --bg: #161a17;
+        --fg: #ecefec;
+        --muted: #a3aaa4;
+        --border: #2f3631;
+        --subtle: #1e2420;
+        --note: #22392a;
+        --primary: #6fbf7a;
+        --pfg: #0f1a11;
+        --card: #1b201c;
+        --tray: #0e110f;
+        --trayfg: #e6e9e6;
+        --warn: #e0b25a;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #eef0ee;
+        font:
+          15px/1.5 Geist,
+          system-ui,
+          sans-serif;
+        color: #231f20;
+        padding: 28px 24px 48px;
+      }
+      h1 {
+        font-size: 22px;
+        font-weight: 600;
+        margin: 0 0 4px;
+        letter-spacing: -0.01em;
+      }
+      .thesis {
+        color: #575c58;
+        margin: 0 0 6px;
+        max-width: 72ch;
+      }
+      .not {
+        color: #575c58;
+        font-size: 13px;
+        margin: 0 0 22px;
+      }
+      .modes {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+      @media (max-width: 1200px) {
+        .modes {
+          grid-template-columns: 1fr;
+        }
+      }
+      .frame {
+        background: var(--bg);
+        color: var(--fg);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .mlabel {
+        font:
+          11px Geist Mono,
+          monospace;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+      }
+      .step {
+        padding: 18px 22px;
+        border-bottom: 1px dashed var(--border);
+      }
+      .step:last-child {
+        border-bottom: 0;
+      }
+      .stepn {
+        font:
+          11px Geist Mono,
+          monospace;
+        color: var(--muted);
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+      }
+      .mono {
+        font-family:
+          Geist Mono,
+          ui-monospace,
+          monospace;
+      }
+      .meta {
+        font:
+          12px Geist Mono,
+          monospace;
+        color: var(--muted);
+      }
+      .you {
+        margin-left: auto;
+        max-width: 80%;
+        background: var(--note);
+        border-radius: 14px;
+        padding: 8px 14px;
+        width: fit-content;
+      }
+      .said {
+        max-width: 62ch;
+        margin: 10px 0;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 14px;
+        margin: 8px 0;
+      }
+      .composer {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--card);
+        padding: 10px 12px;
+      }
+      .dest {
+        font-size: 12.5px;
+        color: var(--muted);
+        margin-bottom: 6px;
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .dest b {
+        color: var(--fg);
+        font-weight: 500;
+      }
+      .send {
+        margin-left: auto;
+        background: var(--primary);
+        color: var(--pfg);
+        border-radius: 8px;
+        padding: 5px 12px;
+        font-size: 13px;
+      }
+      .term {
+        background: var(--tray);
+        color: var(--trayfg);
+        border-radius: 8px;
+        padding: 10px 12px;
+        font:
+          12.5px/1.55 Geist Mono,
+          monospace;
+        white-space: pre-wrap;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 2px 10px;
+        font:
+          12px Geist Mono,
+          monospace;
+        color: var(--muted);
+      }
+      .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--primary);
+        display: inline-block;
+      }
+      .btn {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 3px 10px;
+        font-size: 13px;
+        background: var(--card);
+        color: var(--fg);
+      }
+      .rex {
+        width: 20px;
+        height: 20px;
+        border-radius: 5px;
+        background: #23602b;
+        color: #fff;
+        font:
+          600 10px Geist Mono,
+          monospace;
+        display: grid;
+        place-items: center;
+        flex: none;
+      }
+      .rexmark {
+        color: #9be3a6;
+      }
+      .card {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--subtle);
+        overflow: hidden;
+      }
+      .cardh {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        font-size: 13.5px;
+        border-bottom: 1px solid var(--border);
+      }
+      .handoff {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--muted);
+        margin: 8px 0 0 28px;
+      }
+      .prefix {
+        font:
+          12px Geist Mono,
+          monospace;
+        background: var(--tray);
+        color: var(--trayfg);
+        border-radius: 6px;
+        padding: 2px 7px;
+      }
+      .tabs {
+        display: flex;
+        gap: 2px;
+        border-bottom: 1px solid var(--border);
+        margin: -18px -22px 14px;
+        padding: 0 12px;
+        font-size: 13px;
+      }
+      .tabs span {
+        padding: 8px 12px;
+        color: var(--muted);
+      }
+      .tabs .on {
+        color: var(--fg);
+        border-bottom: 2px solid var(--primary);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>B · Tab-first</h1>
+    <p class="thesis">
+      The Rex tab is the unit. ! opens the tab and brings it forward so you can
+      answer prompts there; the thread keeps only a slim status line and a
+      receipt.
+    </p>
+    <p class="not">
+      <b>Not:</b> output inside the conversation; the thread stays the agent's,
+      the tab is yours.
+    </p>
+    <div class="modes">
+      <div class="frame">
+        <div class="mlabel">
+          <span>Light</span
+          ><span>rex-fw · Claude Code · ~/dev/01_Projects/rex-browser</span>
+        </div>
+        <div class="step">
+          <div class="stepn">1 · Composer in ! mode</div>
+          <div class="composer">
+            <div class="dest">
+              Opens a new tab
+              <b class="mono" style="font-weight: 500">! gh auth refresh</b> on
+              <b>rex-fw</b>
+            </div>
+            <div class="mono" style="font-size: 14px">
+              !gh auth refresh -h github.com -s workflow
+            </div>
+            <div style="display: flex; margin-top: 8px">
+              <span class="meta">Opens and focuses the tab</span
+              ><span class="send">Open tab ↵</span>
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="stepn">2 · Running · tab in front</div>
+          <div class="tabs">
+            <span>rex-browser</span
+            ><span class="on"><span class="dot"></span> ! gh auth refresh</span>
+          </div>
+          <div class="term">
+            $ gh auth refresh -h github.com -s workflow ! First copy your
+            one-time code: 4F2A-91C7 Press Enter to open github.com in your
+            browser... <span style="opacity: 0.6">▍</span>
+          </div>
+          <div class="meta" style="margin-top: 8px">
+            Claude Code gets the output when this ends ·
+            <u>Back to conversation</u>
+          </div>
+        </div>
+        <div class="step">
+          <div class="stepn">3 · Finished · receipt in thread</div>
+          <div class="row">
+            <span class="pill"
+              ><span class="dot"></span>tab ! gh auth refresh · exit 0 ·
+              41s</span
+            ><span>3 lines sent to Claude Code</span
+            ><span class="btn" style="margin-left: auto">Open tab</span>
+          </div>
+          <p class="said">
+            Thanks, the token has the workflow scope now. Pushing the branch and
+            opening the PR.
+          </p>
+        </div>
+      </div>
+      <div class="frame dark">
+        <div class="mlabel">
+          <span>Dark</span
+          ><span>rex-fw · Claude Code · ~/dev/01_Projects/rex-browser</span>
+        </div>
+        <div class="step">
+          <div class="stepn">1 · Composer in ! mode</div>
+          <div class="composer">
+            <div class="dest">
+              Opens a new tab
+              <b class="mono" style="font-weight: 500">! gh auth refresh</b> on
+              <b>rex-fw</b>
+            </div>
+            <div class="mono" style="font-size: 14px">
+              !gh auth refresh -h github.com -s workflow
+            </div>
+            <div style="display: flex; margin-top: 8px">
+              <span class="meta">Opens and focuses the tab</span
+              ><span class="send">Open tab ↵</span>
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="stepn">2 · Running · tab in front</div>
+          <div class="tabs">
+            <span>rex-browser</span
+            ><span class="on"><span class="dot"></span> ! gh auth refresh</span>
+          </div>
+          <div class="term">
+            $ gh auth refresh -h github.com -s workflow ! First copy your
+            one-time code: 4F2A-91C7 Press Enter to open github.com in your
+            browser... <span style="opacity: 0.6">▍</span>
+          </div>
+          <div class="meta" style="margin-top: 8px">
+            Claude Code gets the output when this ends ·
+            <u>Back to conversation</u>
+          </div>
+        </div>
+        <div class="step">
+          <div class="stepn">3 · Finished · receipt in thread</div>
+          <div class="row">
+            <span class="pill"
+              ><span class="dot"></span>tab ! gh auth refresh · exit 0 ·
+              41s</span
+            ><span>3 lines sent to Claude Code</span
+            ><span class="btn" style="margin-left: auto">Open tab</span>
+          </div>
+          <p class="said">
+            Thanks, the token has the workflow scope now. Pushing the branch and
+            opening the PR.
+          </p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

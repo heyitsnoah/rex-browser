@@ -12,7 +12,11 @@ export function AnswerCard(props: {
         Needs your answer
       </p>
       <p className="mt-1.5 mb-2.5 text-sm leading-snug font-medium">
-        {props.prompt.question || 'The agent is waiting for a choice.'}
+        {props.prompt.question ? (
+          <Linked text={props.prompt.question} />
+        ) : (
+          'The agent is waiting for a choice.'
+        )}
       </p>
       <div className="flex flex-col gap-1.5">
         {props.prompt.options.map((option) => (
@@ -45,4 +49,25 @@ export function AnswerCard(props: {
       </button>
     </div>
   )
+}
+
+/** Text with its web addresses as links (they open in a new tab). */
+function Linked(props: { readonly text: string }) {
+  return props.text
+    .split(/(https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"])/)
+    .map((part, index) =>
+      index % 2 ? (
+        <a
+          className="text-primary break-all underline underline-offset-2"
+          href={part}
+          key={index}
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          {part}
+        </a>
+      ) : (
+        part
+      ),
+    )
 }

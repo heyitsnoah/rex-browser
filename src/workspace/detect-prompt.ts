@@ -8,7 +8,13 @@ export type AgentPrompt = NonNullable<ReturnType<typeof detectPrompt>>
 export function detectPrompt(screen: string) {
   const lines = screen
     .split('\n')
-    .map((line) => line.trimEnd())
+    // Claude Code draws some questions inside a box; its side borders aren't part of the text.
+    .map((line) =>
+      line
+        .replace(/^\s*[│┃║]\s?/, '')
+        .replace(/\s*[│┃║]\s*$/, '')
+        .trimEnd(),
+    )
     .slice(-60)
   const end = lines.findLastIndex((line) =>
     /Esc to cancel|Enter to confirm|to select|Tab to amend/.test(line),

@@ -15,7 +15,11 @@ import { SessionRail } from '@/workspace/components/session-rail'
 import { WorkspaceHeader } from '@/workspace/components/workspace-header'
 import { AGENT_NAMES, paneAgent } from '@/workspace/pane-agent'
 import { isSubagentRunning } from '@/workspace/subagent-status'
-import { newTabAction, writeToPaneAction } from '@/workspace/workspace-actions'
+import {
+  closeTabAction,
+  newTabAction,
+  writeToPaneAction,
+} from '@/workspace/workspace-actions'
 import {
   useConversation,
   useHosts,
@@ -187,6 +191,12 @@ export function Workspace() {
         hosts={hosts.data}
         hostsError={hosts.error?.message}
         onClose={() => setNav(false)}
+        onCloseTab={async (closed) => {
+          await closeTabAction(closed)
+          await queryClient.invalidateQueries({
+            queryKey: ['tabs', closed.host, closed.session],
+          })
+        }}
         onNewTab={async (tabProps) => {
           await newTabAction(tabProps)
           await queryClient.invalidateQueries({
