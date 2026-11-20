@@ -1,6 +1,6 @@
 'use client'
 
-import { useLayoutEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 
 const KEYS = new Map([
   ['ArrowDown', '\x1b[B'],
@@ -24,6 +24,10 @@ export function TerminalView(props: {
   const pre = useRef<HTMLPreElement>(null)
   // Read by the scroll handler and the layout effect, not by render: whether the reader is at the bottom.
   const atBottom = useRef(true)
+  // Switching to typing moves focus into the terminal so keys go there at once (a DOM focus side effect).
+  useEffect(() => {
+    if (props.typing) pre.current?.focus()
+  }, [props.typing])
   // Follow new output unless the reader scrolled up.
   useLayoutEffect(() => {
     if (atBottom.current && pre.current) {

@@ -150,6 +150,7 @@ export async function readTranscripts(request) {
       ? exact[0]
       : since[0]
   let text
+  let truncated = false
   if (chosen) {
     const file = await realpath(
       path.join(root, Buffer.from(chosen.id, 'base64url').toString()),
@@ -160,11 +161,19 @@ export async function readTranscripts(request) {
     }
     const handle = await open(file, 'r')
     try {
+      // Long sessions keep growing; the view shows only recent items, so read the last 16 MiB
+      // starting at the first complete line.
       const info = await handle.stat()
-      if (info.size > 32 * 1024 * 1024) {
-        throw Error('Transcript exceeds the 32 MiB reader limit.')
+      const limit = 16 * 1024 * 1024
+      if (info.size > limit) {
+        const buffer = Buffer.alloc(limit)
+        await handle.read(buffer, 0, limit, info.size - limit)
+        const tail = buffer.toString('utf8')
+        text = tail.slice(tail.indexOf('\n') + 1)
+        truncated = true
+      } else {
+        text = await handle.readFile('utf8')
       }
-      text = await handle.readFile('utf8')
     } finally {
       await handle.close()
     }
@@ -252,5 +261,6 @@ export async function readTranscripts(request) {
     selected: chosen?.id,
     subagents: agents,
     text,
+    truncated,
   }
 }

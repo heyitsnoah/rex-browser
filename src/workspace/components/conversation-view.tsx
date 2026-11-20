@@ -67,6 +67,16 @@ export function ConversationView(props: {
       ref={scroller}
     >
       <div className="mx-auto max-w-184 px-6 pt-7 pb-5 text-[0.9rem] leading-relaxed max-md:px-4 max-md:pt-4">
+        {props.conversation.warnings
+          .filter((warning) => !warning.startsWith('Waiting for an incomplete'))
+          .map((warning) => (
+            <p
+              className="text-muted-foreground mb-4 text-[0.8rem]"
+              key={warning}
+            >
+              {warning}
+            </p>
+          ))}
         {!props.conversation.selected && (
           <div className="mb-4 space-y-2">
             <p className="text-muted-foreground text-sm">

@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server'
-import type { z } from 'zod'
+
+import { z } from 'zod'
 
 /**
  * A GET route that parses search params and returns JSON.
@@ -19,7 +20,14 @@ export function jsonRoute<T extends z.ZodType>(
       )
     } catch (error) {
       return Response.json(
-        { error: error instanceof Error ? error.message : 'Request failed' },
+        {
+          error:
+            error instanceof z.ZodError
+              ? `Invalid request: ${z.prettifyError(error)}`
+              : error instanceof Error
+                ? error.message
+                : 'Request failed',
+        },
         { status: 500 },
       )
     }

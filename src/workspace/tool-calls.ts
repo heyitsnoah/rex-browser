@@ -47,6 +47,7 @@ export function toolSummary(name: string, input: unknown) {
   }
   const pick =
     [
+      firstQuestion(args.questions),
       args.description,
       args.command,
       args.cmd,
@@ -81,4 +82,10 @@ export function runSentence(names: string[]) {
   return parts.length > 1
     ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1) ?? ''}`
     : (parts.at(0) ?? '')
+}
+
+/** AskUserQuestion puts its text in `questions[0].question`. */
+function firstQuestion(questions: unknown) {
+  const first = z.array(z.object({ question: z.string() })).safeParse(questions)
+  return first.success ? first.data.at(0)?.question : undefined
 }

@@ -87,7 +87,11 @@ source to Node on other computers.
   questions) appears as a "Needs your answer" card; a button presses that
   option's number.
 - The terminal opens in a drawer under the conversation (header button or
-  Ctrl+J); Direct typing is available while a terminal is on screen.
+  Ctrl+J). While a terminal is on screen, **Compose / Type in terminal** picks
+  where your typing goes; Type in terminal hides the message box and sends every
+  key to the pane.
+- A session too long to read whole (over 16 MiB) is read from its most recent
+  part, and the view says so.
 
 ## Composer
 

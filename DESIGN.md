@@ -178,8 +178,10 @@ line icons, 1.5px stroke, 16px in the rail header, 12px in rows.
 - **Header.** The tab name is the only title. Path is Mono
   `computer / session / n panes`. Status is one Mono word (`LIVE`, `LOADING`,
   `IDLE`, `OFFLINE`, `ERROR`) and always has the word, never color alone.
-- **Input mode.** Segmented `Read only | Direct typing`; the selected segment is
-  Ink, never Forest. It returns to Read only whenever the target changes.
+- **Input mode.** Segmented `Compose | Type in terminal` (`Type` on phones):
+  where your typing goes. The selected segment is Ink, never Forest. Type in
+  terminal hides the composer and focuses the terminal; it returns to Compose
+  whenever the target changes.
 - **Pane.** Bordered card with a 34px header (title, Mono short id). The
   targeted pane has a 2px Forest outline at 2px offset.
 - **Composer.** "Send to" plus the pane title and id, a Mono field, one Forest
@@ -214,7 +216,7 @@ with transcript access.
   the turn ends; the header shows "N agents running" once, never in two places.
 - Terminal: header button "Terminal Ctrl+J" (pressed state on `muted`) opens a
   drawer under the conversation, 280px default, 140px to 75% of the pane, drag
-  the top edge. Read only / Direct typing appears only while a terminal is on
+  the top edge. Compose / Type in terminal appears only while a terminal is on
   screen. The composer placeholder names the agent ("Reply to Claude Code").
 
 ### Motion

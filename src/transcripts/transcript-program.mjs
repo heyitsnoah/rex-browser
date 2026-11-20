@@ -13,6 +13,9 @@ try {
     typeof data.text === 'string'
       ? parseTranscript(data.text, request.agent)
       : undefined
+  if (data.truncated && parsed) {
+    parsed.warnings.push('Showing the most recent part of a long conversation.')
+  }
   const known = new Set(request.known || [])
   for (const item of parsed?.items || []) {
     if (!item.image || typeof item.image === 'string') continue

@@ -14,6 +14,7 @@ import { PaneGrid } from '@/workspace/components/pane-grid'
 import { SessionRail } from '@/workspace/components/session-rail'
 import { WorkspaceHeader } from '@/workspace/components/workspace-header'
 import { AGENT_NAMES, paneAgent } from '@/workspace/pane-agent'
+import { isSubagentRunning } from '@/workspace/subagent-status'
 import { newTabAction, writeToPaneAction } from '@/workspace/workspace-actions'
 import {
   useConversation,
@@ -72,8 +73,16 @@ export function Workspace() {
   const drawer = active !== undefined && drawers.has(active)
   const hostLabel = hosts.data?.find((item) => item.id === host)?.label ?? host
   const running = agent
-    ? agent.subagents.filter(
-        (sub) => !sub.done && !(sub.toolUseId in agent.finished),
+    ? agent.subagents.filter((sub) =>
+        isSubagentRunning({
+          done: sub.done,
+          finished:
+            sub.toolUseId in agent.finished
+              ? agent.finished[sub.toolUseId]
+              : undefined,
+          offsetMs: Date.parse(agent.now) - Date.now(),
+          updated: sub.updated,
+        }),
       ).length
     : 0
 
@@ -240,47 +249,51 @@ export function Workspace() {
             </p>
           )}
         </div>
-        <Composer
-          agentLabel={agentLabel}
-          destination={
-            target
-              ? [
-                  hostLabel,
-                  agentLabel ?? panes.find((pane) => pane.id === active)?.title,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')
-              : ''
-          }
-          onPending={(message) => {
-            const block = active ?? ''
-            const entry = {
-              at: Date.now(),
-              failed: false,
-              sent: false,
-              ...message,
+        {/* Typing in the terminal sends every key there, so the message box steps aside. */}
+        {!(typing && target && (!agent || drawer)) && (
+          <Composer
+            agentLabel={agentLabel}
+            destination={
+              target
+                ? [
+                    hostLabel,
+                    agentLabel ??
+                      panes.find((pane) => pane.id === active)?.title,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')
+                : ''
             }
-            updatePending(block, (list) => [
-              ...list.filter((item) => Date.now() - item.at < 10 * 60 * 1000),
-              entry,
-            ])
-            return {
-              failed: () =>
-                updatePending(block, (list) =>
-                  list.map((item) =>
-                    item.at === entry.at ? { ...item, failed: true } : item,
+            onPending={(message) => {
+              const block = active ?? ''
+              const entry = {
+                at: Date.now(),
+                failed: false,
+                sent: false,
+                ...message,
+              }
+              updatePending(block, (list) => [
+                ...list.filter((item) => Date.now() - item.at < 10 * 60 * 1000),
+                entry,
+              ])
+              return {
+                failed: () =>
+                  updatePending(block, (list) =>
+                    list.map((item) =>
+                      item.at === entry.at ? { ...item, failed: true } : item,
+                    ),
                   ),
-                ),
-              sent: () =>
-                updatePending(block, (list) =>
-                  list.map((item) =>
-                    item.at === entry.at ? { ...item, sent: true } : item,
+                sent: () =>
+                  updatePending(block, (list) =>
+                    list.map((item) =>
+                      item.at === entry.at ? { ...item, sent: true } : item,
+                    ),
                   ),
-                ),
-            }
-          }}
-          target={target}
-        />
+              }
+            }}
+            target={target}
+          />
+        )}
       </main>
     </div>
   )

@@ -8,6 +8,7 @@ import {
   LiveDuration,
 } from '@/workspace/components/live-duration'
 import { ToolIcon } from '@/workspace/components/tool-icon'
+import { isSubagentRunning } from '@/workspace/subagent-status'
 import { toolArgs, toolSummary } from '@/workspace/tool-calls'
 
 type Subagent = AgentConversation['subagents'][number]
@@ -23,14 +24,17 @@ export function SubagentCard(props: {
   const args = toolArgs(props.call.input)
   const background = props.info?.background ?? args?.run_in_background === true
   // Background agents report completion in a notification; foreground ones by their result.
-  const recentlyWritten =
-    props.info !== undefined &&
-    Date.now() + props.offsetMs - Date.parse(props.info.updated) < 5 * 60 * 1000
-  const running =
-    props.finished === undefined &&
-    (background
-      ? props.info !== undefined && !props.info.done && recentlyWritten
-      : props.call.output === undefined && props.working)
+  const running = background
+    ? props.info !== undefined &&
+      isSubagentRunning({
+        done: props.info.done,
+        finished: props.finished,
+        offsetMs: props.offsetMs,
+        updated: props.info.updated,
+      })
+    : props.finished === undefined &&
+      props.call.output === undefined &&
+      props.working
   const status = running
     ? 'running'
     : props.finished === 'failed' || props.finished === 'killed'
@@ -48,6 +52,7 @@ export function SubagentCard(props: {
     // Remount when the status changes so a running card opens and a finished one folds.
     <details
       className="border-border bg-card mt-1.5 mb-3.5 rounded-xl border"
+      data-agent-running={running ? '' : undefined}
       key={status}
       open={running}
     >

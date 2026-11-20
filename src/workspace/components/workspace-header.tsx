@@ -42,14 +42,23 @@ export function WorkspaceHeader(props: {
         <span className="max-md:hidden">{props.error ? '' : 'Live'}</span>
       </span>
       {props.agentsRunning > 0 && (
-        <span className="text-primary inline-flex items-center gap-1.5 font-mono text-xs whitespace-nowrap">
+        <button
+          className="text-primary hover:bg-muted inline-flex h-8 items-center gap-1.5 rounded-lg px-2 font-mono text-xs whitespace-nowrap"
+          onClick={() =>
+            document
+              .querySelector('[data-agent-running]')
+              ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }
+          title="Show the running agent"
+          type="button"
+        >
           <span className="bg-primary animate-pulse-dot size-1.5 rounded-full" />
           <span className="max-md:hidden">
             {props.agentsRunning === 1
               ? '1 agent running'
               : `${props.agentsRunning} agents running`}
           </span>
-        </span>
+        </button>
       )}
       {props.drawer !== undefined && (
         <button
@@ -68,7 +77,7 @@ export function WorkspaceHeader(props: {
       )}
       {props.typing !== undefined && (
         <div
-          aria-label="Keyboard input"
+          aria-label="Where your typing goes"
           className="inline-flex shrink-0 rounded-lg border p-0.5"
           role="group"
         >
@@ -82,13 +91,11 @@ export function WorkspaceHeader(props: {
             >
               {typing ? (
                 <>
-                  <span className="max-md:hidden">Direct typing</span>
+                  <span className="max-md:hidden">Type in terminal</span>
                   <span className="md:hidden">Type</span>
                 </>
               ) : (
-                <>
-                  Read<span className="max-md:hidden"> only</span>
-                </>
+                'Compose'
               )}
             </button>
           ))}

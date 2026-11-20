@@ -27,10 +27,8 @@ export function PaneView(props: {
   readonly transcript: string | undefined
   readonly typing: boolean
 }) {
-  const agent = paneAgent(
-    useConversation(props.target, props.transcript).data,
-    props.transcript !== undefined,
-  )
+  const conversation = useConversation(props.target, props.transcript)
+  const agent = paneAgent(conversation.data, props.transcript !== undefined)
   const terminalShown = !agent || props.drawer
   // Fast while the terminal is on screen; slower while only watching for a prompt the agent is stopped at.
   const screen = useScreen(
@@ -41,15 +39,20 @@ export function PaneView(props: {
     agent && !props.drawer && agent.working
       ? detectPrompt(screen.data?.content ?? '')
       : undefined
-  const terminal = (
-    <TerminalView
-      content={screen.data?.content ?? ''}
-      label={props.title}
-      onFocus={props.onSelect}
-      onInput={props.onInput}
-      typing={props.typing && props.active}
-    />
-  )
+  const terminal =
+    screen.data === undefined && !screen.error ? (
+      <p className="text-muted-foreground grid h-full place-items-center text-sm">
+        Loading screen…
+      </p>
+    ) : (
+      <TerminalView
+        content={screen.data?.content ?? ''}
+        label={props.title}
+        onFocus={props.onSelect}
+        onInput={props.onInput}
+        typing={props.typing && props.active}
+      />
+    )
   return (
     <section
       className={`bg-card flex h-full min-h-0 flex-col overflow-hidden ${props.solo ? '' : `rounded-lg border ${props.active ? 'outline-primary outline-2 outline-offset-2' : ''}`}`}
@@ -63,7 +66,11 @@ export function PaneView(props: {
           </span>
         </div>
       )}
-      {agent ? (
+      {conversation.isPending ? (
+        <p className="text-muted-foreground grid min-h-0 flex-1 place-items-center text-sm">
+          Loading…
+        </p>
+      ) : agent ? (
         <>
           <div className="min-h-0 flex-1">
             <ConversationView
@@ -108,7 +115,15 @@ export function PaneView(props: {
           )}
         </>
       ) : (
-        <div className="min-h-0 flex-1">{terminal}</div>
+        <div className="flex min-h-0 flex-1 flex-col">
+          {conversation.error && (
+            <p className="text-destructive border-b px-3.5 py-2 text-[0.8rem]">
+              Conversation unavailable: {conversation.error.message} Showing the
+              terminal.
+            </p>
+          )}
+          <div className="min-h-0 flex-1">{terminal}</div>
+        </div>
       )}
     </section>
   )
