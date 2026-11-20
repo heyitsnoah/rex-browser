@@ -81,7 +81,7 @@ export function Composer(props: {
 
   function pick(name: string) {
     const before = text.slice(0, caret).replace(/\/\S*$/, `/${name} `)
-    setText(before + text.slice(caret).replace(/^\S*\s?/, ''))
+    setText(before + text.slice(caret).replace(/^\S*[ \t]?/, ''))
     setCaret(before.length)
     setMenuClosed(true)
     // Put the cursor after the inserted name once React has rendered the new text (a DOM side effect).

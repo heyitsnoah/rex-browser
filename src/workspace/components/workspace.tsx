@@ -343,7 +343,7 @@ export function Workspace() {
               <AgentStatus
                 agent={agent.agent}
                 // Remounts when the transcript catches up, dropping a shown-but-unconfirmed choice.
-                key={`${target.block}|${agent.status.model}|${agent.status.effort}|${agent.status.mode}`}
+                key={`${target.block}|${agent.status.model}|${agent.status.effort}`}
                 status={agent.status}
                 target={target}
                 working={agent.working}

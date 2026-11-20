@@ -31,12 +31,13 @@ export async function readAgentProcess(props: {
     ...(info.ancestors ?? []),
     info.child,
   ].filter((p) => p !== undefined)
+  const seen = processes.map(detectAgent).find((agent) => agent !== undefined)
   return {
-    agent:
-      processes.map(detectAgent).find((agent) => agent !== undefined) ??
-      // Started as `zsh -lc 'claude …'`, the agent shares the shell's process group, so the shell is
-      // what Rex reports; the agent still reports itself to the terminal (program_status).
-      (await reportedAgent(props)),
+    // Started as `zsh -lc 'claude …'`, the agent shares the shell's process group, so the shell is
+    // what Rex reports; the agent still reports itself to the terminal (program_status).
+    agent: seen ?? (await reportedAgent(props)),
+    // Then the agent is a child of these processes, which the transcript reader looks up.
+    byShell: seen === undefined,
     cwd: info.foreground?.cwd ?? info.child?.cwd,
     pids: processes.map((p) => p.pid),
   }

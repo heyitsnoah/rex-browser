@@ -93,10 +93,11 @@ export async function readConversation(props: {
   session: string
   transcript: string | undefined
 }) {
-  const { agent, cwd, pids } = await readAgentProcess(props)
+  const { agent, byShell, cwd, pids } = await readAgentProcess(props)
   if (!agent) return { agent: null }
   const request = {
     agent,
+    children: byShell,
     cwd,
     id: props.transcript,
     known: [...images.keys()],

@@ -34,26 +34,35 @@ export function AgentStatus(props: {
   readonly target: PaneTarget
   readonly working: boolean
 }) {
-  const { status } = props
   // The transcript shows a new model or effort only with the agent's next reply; until then, show the choice.
   const [chosen, setChosen] = useState<
     Partial<Record<Setting['kind'], string>>
   >({})
   const [busy, setBusy] = useState(false)
+  // The chosen mode shows until the transcript's mode changes (to it, or later from the terminal).
+  const [seenMode, setSeenMode] = useState(props.status.mode)
+  if (seenMode !== props.status.mode) {
+    setSeenMode(props.status.mode)
+    setChosen((current) => ({ ...current, mode: undefined }))
+  }
   const model =
-    chosen.model ?? /claude-(haiku|opus|sonnet)/.exec(status.model)?.[1] ?? ''
-  const effort = chosen.effort ?? status.effort
-  const mode = chosen.mode ?? (status.mode || 'default')
-  const context = status.context
-    ? `${status.context.toLocaleString()} context`
+    chosen.model ??
+    /claude-(haiku|opus|sonnet)/.exec(props.status.model)?.[1] ??
+    ''
+  const effort = chosen.effort ?? props.status.effort
+  const mode = chosen.mode ?? (props.status.mode || 'default')
+  const context = props.status.context
+    ? `${props.status.context.toLocaleString()} context`
     : ''
-  const branch = status.branch && `⎇ ${status.branch}`
+  const branch = props.status.branch && `⎇ ${props.status.branch}`
   if (props.agent !== 'claude') {
     return [
-      modelName(status.model),
+      modelName(props.status.model),
       context,
       branch,
-      new Map(Object.entries(MODES)).get(status.mode) ?? '',
+      new Map(
+        Object.entries({ ...MODES, bypassPermissions: 'bypass permissions' }),
+      ).get(props.status.mode) ?? '',
     ]
       .filter(Boolean)
       .join(' · ')
@@ -100,7 +109,7 @@ export function AgentStatus(props: {
         value={model}
       >
         {!(model in MODELS) && (
-          <option value={model}>{modelName(status.model)}</option>
+          <option value={model}>{modelName(props.status.model)}</option>
         )}
         {Object.entries(MODELS).map(([value, label]) => (
           <option key={value} value={value}>
@@ -146,7 +155,11 @@ export function AgentStatus(props: {
         title={title}
         value={mode}
       >
-        {!(mode in MODES) && <option value={mode}>{mode}</option>}
+        {!(mode in MODES) && (
+          <option value={mode}>
+            {mode === 'bypassPermissions' ? 'bypass permissions' : mode}
+          </option>
+        )}
         {Object.entries(MODES).map(([value, label]) => (
           <option key={value} value={value}>
             {label}

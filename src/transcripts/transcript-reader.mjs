@@ -46,9 +46,13 @@ export async function readTranscripts(request) {
   }
   await walk(root)
   // An agent started by a shell (`zsh -lc 'claude …'`) is the shell's child, not the pane's process;
-  // add the children (two levels) so its own process ID is matched.
+  // for such a pane add the children (two levels) so its own process ID is matched.
   const pids = [...(request.pids || [])]
-  for (let level = 0, edge = pids; level < 2 && edge.length; level++) {
+  for (
+    let level = 0, edge = request.children ? pids : [];
+    level < 2 && edge.length;
+    level++
+  ) {
     const children = []
     for (const pid of edge.filter((p) => Number.isSafeInteger(p) && p > 0)) {
       try {
@@ -80,7 +84,11 @@ export async function readTranscripts(request) {
             'utf8',
           ),
         )
-        if (info.sessionId) exactId = info.sessionId
+        // The pane's own process comes first; a Claude started inside it (from a tool) doesn't win.
+        if (info.sessionId) {
+          exactId = info.sessionId
+          break
+        }
       } catch {
         // Optional metadata: matching falls back to the project directory.
       }
