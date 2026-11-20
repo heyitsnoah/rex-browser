@@ -1,3 +1,4 @@
+import {transcriptAccess} from './src/transcripts/transcript-access.ts';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
@@ -64,6 +65,10 @@ const server = createServer(async (req, res) => {
           args.push('api','call','-s',session,'session.new_window',JSON.stringify({session_id:session,focus:false,window_label:data.text.trim(),layout:{block:{flavor:'com.superlogical.terminal.shell'}}}));
           break;
         }
+        case '/api/transcript':
+          if(!session || !block)throw Error('Select a pane');
+          res.setHeader('Content-Type','application/json');
+          res.end(JSON.stringify(await transcriptAccess(host,session,block,url.searchParams.get('transcript') || undefined)));return;
         case '/api/screen':
           if (!session || !block) throw Error('Select a pane');
           args.push('block','call','-s',session,'-b',block,'format',JSON.stringify({format:'vt',extra_cursor:true})); break;

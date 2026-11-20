@@ -75,3 +75,28 @@ tailscale serve --bg 4317
 ```
 
 Requests for that host name are accepted only when Tailscale Serve reports that login in `Tailscale-User-Login`; everyone else, including tagged devices with no user, gets 403. With either variable unset, only loopback works. Never use Funnel: the page carries the API token and can type into every pane.
+
+## Agent transcript views (access setup required per host)
+
+Claude Code, Codex, and Pi processes default to a conversation view; a Terminal button switches to the Rex output. Other programs retain the terminal view. The composer still sends input through Rex; the application never edits JSONL or resumes a second agent process.
+
+The reader runs on the host that owns the files, reads originals in place, and returns messages in memory. No transcript copies, synchronization, database, SDK, or agent-service dependency. It polls every three seconds while visible. It reads `.claude/projects`, `.codex/sessions`, and `.pi/agent/sessions` under that host user's home. Only uncompressed JSONL is supported, up to 32 MiB per file; the UI shows the latest 500 items. Tool calls/results are expandable plain text. Rich Markdown/diff rendering is not yet implemented.
+
+Configure `.rex-transcripts.json` locally (gitignored), keyed by the discovered Rex DNS name:
+
+```json
+{
+  "rex-example.your-tailnet.ts.net": { "ssh": "user@example" },
+  "rex-this-machine.your-tailnet.ts.net": { "local": true }
+}
+```
+
+Use `local` only when that Rex server runs on the browser bridge's own machine as the same user. SSH uses existing credentials and strict host-key verification; it runs Node through stdin without installing or writing a script on the remote machine. Node must be on the remote noninteractive PATH. No configuration has been installed for Noah's remote hosts yet: Mini rejected SSH credentials and Spark requested Tailscale SSH authentication.
+
+Claude's PID session metadata and open transcript files reported by `lsof` can establish an exact match. Otherwise the UI lists conversations whose recorded working directory matches the pane's project and asks the user to select; it never assumes the newest file is the active conversation. Missing/unsupported home directories, absent metadata, large files, and compressed Codex rollouts can prevent matching. A selected transcript is a view only, not proof it belongs to the currently running process. If remote access is unavailable, the conversation view explains this and Terminal remains available.
+
+Parser coverage: Claude/Pi parent chains, Claude sidechain exclusion, Codex canonical response items (avoids duplicate event messages), tool content, compaction markers, incomplete and malformed lines. Raw transcripts remain authoritative; this is a conversation reader, not an exact model-context reconstruction or full implementation of every provider's rollback/edit event.
+
+Validation: `node --test src/transcripts/transcript-parser.test.mjs`. Five tests pass. An existing local Pi transcript was read in place and produced 191 items; no copy was saved. Browser fixture checks passed transcript default, safe text rendering, and Terminal fallback. Real remote transcript end-to-end QA remains blocked on access. Existing shell terminal rendering was checked against live Rex.
+
+Reference inspected: T3 Code `AgentSessionScanner.ts`, `AgentSessionImporter.ts`, and `usageTranscriptReader.ts` at `c7157d376d828541b86f472d33e2e03f037edc32`: https://github.com/pingdotgg/t3code/tree/c7157d376d828541b86f472d33e2e03f037edc32/apps/server/src . Implementation here is independent; no T3 runtime dependency.

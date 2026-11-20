@@ -202,13 +202,42 @@ function selectTab(host, session, tab) {
     const pre = el('pre', {tabIndex: 0}); pre.setAttribute('aria-label', paneTitle(item));
     pre.onfocus = () => { if (state.block !== item.block_id) selectPane(item.block_id); };
     const head = el('button', {className: 'pane-head', onclick: () => { selectPane(item.block_id); pre.focus(); }}, el('span', {className: 'trunc', textContent: paneTitle(item)}), el('span', {className: 'id', textContent: item.block_id.slice(-6)}));
-    slot.append(el('div', {className: 'pane'}, head, pre));
+    const transcript = el('div', {className:'conversation',hidden:true});
+    const view = el('button',{className:'view-toggle',textContent:'Terminal',hidden:true,onclick:()=>{
+      slot.mode=slot.mode==='terminal'?'transcript':'terminal';
+      pre.hidden=slot.mode!=='terminal';transcript.hidden=slot.mode!=='transcript';
+      view.textContent=slot.mode==='terminal'?'Conversation':'Terminal';slot.lastTranscriptPoll=0;run(update);
+    }});
+    slot.append(el('div', {className: 'pane'}, head, view, pre, transcript));
     work.append(slot);
   }
   for (const layer of current.layers.filter(l => l.kind === 'tiled')) draw(layer.layout);
   selectPane(panes.some(p => p.block_id === current.focused_block_id) ? current.focused_block_id : panes[0]?.block_id || '');
   if (slots().length) { setState('Loading'); setNotice(''); run(update); }
   else { setState('Idle'); setNotice('No terminal panes in this tab.'); }
+}
+
+function renderConversation(slot,data) {
+  const container=slot.querySelector('.conversation');
+  const follow=container.scrollHeight-container.scrollTop-container.clientHeight<40;
+  const nodes=[];
+  if(data.unavailable)nodes.push(el('p',{className:'hint',textContent:data.unavailable}));
+  if(!data.selected && !data.unavailable){
+    nodes.push(el('p',{className:'hint',textContent:'No exact live-session match. Choose a transcript from this project; it will not be resumed or modified.'}));
+    const select=el('select');select.setAttribute('aria-label','Choose transcript');select.append(new Option('Choose conversation…',''));
+    for(const c of data.candidates||[])select.append(new Option(c.sessionId+' · '+c.modified,c.id));
+    select.onchange=()=>{slot.transcriptId=select.value;slot.lastTranscriptPoll=0;run(update);};nodes.push(select);
+    if(!data.candidates?.length)nodes.push(el('p',{textContent:'No matching JSONL transcripts found.'}));
+  }
+  for(const warning of data.warnings||[])nodes.push(el('p',{className:'hint',textContent:warning}));
+  for(const item of data.items||[]){
+    if(item.role==='tool'||item.role==='result')nodes.push(el('details',{},el('summary',{textContent:(item.role==='tool'?'Tool · ':'Result · ')+item.name}),el('pre',{textContent:item.text})));
+    else nodes.push(el('article',{className:'message '+item.role},el('div',{className:'label',textContent:item.role}),el('div',{className:'message-text',textContent:item.text})));
+  }
+  if(data.selected&&!data.items?.length)nodes.push(el('p',{className:'hint',textContent:'Waiting for transcript messages…'}));
+  const opened=[...container.querySelectorAll('details')].map(d=>d.open);
+  container.replaceChildren(...nodes);container.querySelectorAll('details').forEach((d,i)=>d.open=opened[i]||false);
+  if(follow)container.scrollTop=container.scrollHeight;
 }
 
 async function update() {
@@ -218,6 +247,28 @@ async function update() {
   const version = generation, target = {host: state.host, session: state.session};
   try {
     await Promise.all(panes.map(async slot => {
+      if(!slot.lastTranscriptPoll || Date.now()-slot.lastTranscriptPoll>3000){
+        slot.lastTranscriptPoll=Date.now();
+        try{
+          const transcript=await api('transcript',{...target,block:slot.dataset.block,...(slot.transcriptId?{transcript:slot.transcriptId}:{})});
+          if(version!==generation)return;
+          if(transcript.agent){
+            const toggle=slot.querySelector('.view-toggle');toggle.hidden=false;
+            slot.mode??='transcript';toggle.textContent=slot.mode==='terminal'?'Conversation':'Terminal';
+            slot.querySelector('pre').hidden=slot.mode!=='terminal';slot.querySelector('.conversation').hidden=slot.mode!=='transcript';
+            const serialized=JSON.stringify(transcript);
+            if(serialized!==slot.lastTranscript){renderConversation(slot,transcript);slot.lastTranscript=serialized;}
+          }else{
+            slot.mode=undefined;slot.lastTranscript=undefined;slot.transcriptId=undefined;
+            slot.querySelector('.view-toggle').hidden=true;slot.querySelector('pre').hidden=false;slot.querySelector('.conversation').hidden=true;
+          }
+        }catch(error){
+          if(version!==generation)return;
+          if(slot.mode==='transcript')renderConversation(slot,{unavailable:'Transcript unavailable: '+error.message});
+          else setFeedback('Transcript check failed: '+error.message,true);
+        }
+      }
+      if(slot.mode==='transcript')return;
       const data = await api('screen', {...target, block: slot.dataset.block});
       if (version !== generation || data.content === slot.lastContent) return;
       const pre = slot.querySelector('pre'), follow = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 30;
@@ -252,7 +303,7 @@ sendButton.onclick = async () => {
 command.onkeydown = e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); if (!sendButton.disabled) sendButton.click(); } };
 
 work.addEventListener('keydown', e => {
-  if (e.target.tagName !== 'PRE' || !state.typing || e.metaKey) return;
+  if (e.target.tagName !== 'PRE' || e.target.closest('.conversation') || !state.typing || e.metaKey) return;
   const keys = {Enter: '\r', Backspace: '\x7f', Tab: '\t', Escape: '\x1b', ArrowUp: '\x1b[A', ArrowDown: '\x1b[B', ArrowRight: '\x1b[C', ArrowLeft: '\x1b[D'};
   const text = e.ctrlKey && e.key.length === 1 ? String.fromCharCode(e.key.toUpperCase().charCodeAt(0) & 31) : keys[e.key] ?? (e.key.length === 1 ? e.key : undefined);
   if (text !== undefined) { e.preventDefault(); send(text).catch(error => setFeedback('Input failed: ' + error.message, true)); }
