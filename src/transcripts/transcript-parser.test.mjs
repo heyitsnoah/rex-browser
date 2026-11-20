@@ -471,3 +471,10 @@ test('a failed Pi reply shows its error', () => {
     ],
   )
 })
+test('a mid-turn message written after newer records does not hide them',()=>{
+ // Shape captured 2026-11-20: the queued_command attachment is the last record in the file, parented at the
+ // point it was sent, while the assistant kept working on the main chain.
+ const rows=[{message:{content:'go',role:'user'},parentUuid:null,timestamp:'1',type:'user',uuid:'u'},{message:{content:'step one',role:'assistant'},parentUuid:'u',timestamp:'2',type:'assistant',uuid:'a1'},{message:{content:'step two',role:'assistant'},parentUuid:'a1',timestamp:'4',type:'assistant',uuid:'a2'},{attachment:{humanTurn:true,prompt:'how do i see the agent?',type:'queued_command'},parentUuid:'a1',timestamp:'3',type:'attachment',uuid:'q'}];
+ const {items}=parseTranscript(jsonl(rows),'claude');
+ assert.deepEqual(items.map(i=>i.text),['go','step one','how do i see the agent?','step two']);
+});

@@ -38,7 +38,10 @@ export function parseTranscript(text, agent) {
       (r) => r[idKey] && (agent !== 'claude' || !r.isSidechain),
     )
     const index = new Map(linked.map((r) => [r[idKey], r]))
-    let leaf = linked.at(-1)
+    // Claude appends a message sent mid-turn (a queued_command attachment) after newer records, with
+    // its parent at the point it was sent; starting there would hide everything after it. Start from the
+    // newest real record; queued messages branching off the path are added back below.
+    let leaf = linked.findLast((r) => r.type !== 'attachment') ?? linked.at(-1)
     if (leaf && parentKey in leaf) {
       active = []
       const seen = new Set()
