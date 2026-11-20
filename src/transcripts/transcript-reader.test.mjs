@@ -75,6 +75,20 @@ test('two Pis in the same folder each lock onto their own startup session', () =
   )
 })
 
+test('two Pis launched in the same second refuse to guess instead of hijacking each other', () => {
+  const s1 = { created: T0 + 355, id: 'pi1' }
+  const s2 = { created: T0 + 438, id: 'pi2' }
+
+  assert.equal(
+    choosePiCandidate({
+      candidates: [s2, s1],
+      otherSameCwdStarts: [T0],
+      started: T0,
+    }),
+    undefined,
+  )
+})
+
 test('Pi does not guess an older saved session from before startup', () => {
   const yesterday = { created: sec(-86400), id: 'old' }
   assert.equal(

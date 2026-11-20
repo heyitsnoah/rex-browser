@@ -562,10 +562,12 @@ export function choosePiCandidate({ candidates, otherSameCwdStarts, started }) {
   const eligible = candidates.filter((c) => {
     if (c.created < started - 5000) return false
     const dist = Math.abs(c.created - started)
-    // Never pick a session whose timestamp falls in another running Pi's startup window (closer to it).
+    // Never pick a session whose timestamp falls in another running Pi's startup window as close
+    // (within ps etime's ±2s granularity) as it is to ours — refuse to guess on simultaneous launches.
     return !otherSameCwdStarts.some(
       (other) =>
-        inStartupWindow(c.created, other) && Math.abs(c.created - other) < dist,
+        inStartupWindow(c.created, other) &&
+        Math.abs(c.created - other) <= dist + 2000,
     )
   })
   if (otherSameCwdStarts.length > 0) {
