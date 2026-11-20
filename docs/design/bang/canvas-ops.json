@@ -1,0 +1,107 @@
+[
+  {
+    "kind": "text",
+    "op": "add",
+    "size": "l",
+    "text": "! command \u2014 step one of Rex as the harness. Type !cmd in the web box: Rex runs it in a new visible tab on the pane's computer, in the agent's folder, then hands the output to Claude Code / Codex / Pi. Three ways it can read in the thread:",
+    "x": 0,
+    "y": -140
+  },
+  {
+    "artifact": "d5a570cd-7534-495f-81ac-c401e7d6d396",
+    "kind": "tile",
+    "op": "add",
+    "ref": "t1",
+    "x": 0,
+    "y": 0
+  },
+  {
+    "height": 720,
+    "id": "t1",
+    "op": "resize",
+    "width": 720,
+    "x": 0,
+    "y": 0
+  },
+  {
+    "artifact": "5e4ad69d-a024-4927-b05b-f5efcb4d6494",
+    "kind": "tile",
+    "op": "add",
+    "ref": "t2",
+    "x": 780,
+    "y": 0
+  },
+  {
+    "height": 720,
+    "id": "t2",
+    "op": "resize",
+    "width": 720,
+    "x": 780,
+    "y": 0
+  },
+  {
+    "artifact": "8ecc5aa6-f406-4995-b71a-23dc0a1b6ec5",
+    "kind": "tile",
+    "op": "add",
+    "ref": "t3",
+    "x": 1560,
+    "y": 0
+  },
+  {
+    "height": 720,
+    "id": "t3",
+    "op": "resize",
+    "width": 720,
+    "x": 1560,
+    "y": 0
+  },
+  {
+    "kind": "note",
+    "op": "add",
+    "ref": "n4",
+    "text": "A \u00b7 Inline run\nWins when: ! is a convenience and the agent stays the star; no new vocabulary.\nCost: Rex is invisible \u2014 looks like the agent ran it. Doesn't build toward Rex as the harness.",
+    "x": 0,
+    "y": 760
+  },
+  {
+    "height": 170,
+    "id": "n4",
+    "op": "resize",
+    "width": 720,
+    "x": 0,
+    "y": 760
+  },
+  {
+    "kind": "note",
+    "op": "add",
+    "ref": "n5",
+    "text": "B \u00b7 Tab-first\nWins when: commands are mostly interactive (logins, prompts) and the Rex tab is the place you want to be.\nCost: context switch every time; the thread only gets a receipt.",
+    "x": 780,
+    "y": 760
+  },
+  {
+    "height": 170,
+    "id": "n5",
+    "op": "resize",
+    "width": 720,
+    "x": 780,
+    "y": 760
+  },
+  {
+    "fill": "green",
+    "kind": "note",
+    "op": "add",
+    "ref": "n6",
+    "text": "C \u00b7 Rex speaks (recommended)\nWins when: Rex is meant to become the harness \u2014 Rex gets its own mark and voice in the thread, answers prompts inline, and the hand-off to the agent is explicit. Scales to future Rex-owned features (routing between agents, Rex memory, /rex commands).\nCost: a third participant to define and keep consistent.",
+    "x": 1560,
+    "y": 760
+  },
+  {
+    "height": 200,
+    "id": "n6",
+    "op": "resize",
+    "width": 720,
+    "x": 1560,
+    "y": 760
+  }
+]

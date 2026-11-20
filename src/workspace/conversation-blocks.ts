@@ -122,7 +122,7 @@ function appendCall(blocks: ConversationBlock[], call: ToolCall) {
   else blocks.push({ calls: [call], id: call.id, kind: 'run' })
 }
 
-/** The answers in Claude Code's AskUserQuestion result: `…answered: "question"="answer", "q2"="a2". …`. */
+// The answers in Claude Code's AskUserQuestion result: `…answered: "question"="answer", "q2"="a2". …`.
 function questionAnswers(output: string) {
   return [...output.matchAll(/"(?:[^"\\]|\\.)*"="((?:[^"\\]|\\.)*)"/g)].map(
     (match) => match[1].replace(/\\"/g, '"'),

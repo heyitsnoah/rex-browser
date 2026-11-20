@@ -62,9 +62,9 @@ export function ConversationView(props: {
       message.text
         ? (item.role === 'user' &&
             normalize(item.text).endsWith(normalize(message.text))) ||
-          // Typed while the agent was asking a question, it becomes the question's answer.
           (item.role === 'result' &&
-            normalize(item.text).includes(normalize(message.text)))
+            item.text.startsWith('Your questions have been answered:') &&
+            normalize(item.text).includes(`="${normalize(message.text)}"`))
         : item.role !== 'result',
     )
   })
@@ -217,8 +217,13 @@ export function ConversationView(props: {
           </div>
         ))}
         {props.runs
-          // Once the agent has the output, the transcript shows the run.
-          .filter((run) => !items.some((item) => item.id === `run:${run.id}`))
+          // Once the agent has the output the transcript shows the run, even after it scrolls out of the
+          // items read (older than the oldest item shown).
+          .filter(
+            (run) =>
+              !items.some((item) => item.id === `run:${run.id}`) &&
+              !(items.length && run.at < Date.parse(items[0].time) - offsetMs),
+          )
           .map((run) => (
             <RunCard
               agentLabel={AGENT_NAMES[props.conversation.agent]}

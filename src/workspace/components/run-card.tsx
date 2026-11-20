@@ -5,6 +5,7 @@ import { useState } from 'react'
 
 import { LiveDuration } from '@/workspace/components/live-duration'
 import { TerminalView } from '@/workspace/components/terminal-view'
+import { runDonePattern } from '@/workspace/run-marker'
 import { useScreen } from '@/workspace/workspace-queries'
 
 /** A `!` command running in its own terminal next to the agent. */
@@ -41,13 +42,14 @@ export function RunCard(props: {
     finished ? false : 800,
   )
   const content = screen.data?.content ?? ''
-  const done = new RegExp(`REXRUN-${props.run.id}-DONE exit (\\d+)`).exec(
-    content,
-  )
-  if (done && !finished) setFinished(true)
+  const done = runDonePattern(props.run.id).exec(content)
+  // A successful run's tab closes right after its end line; if this page missed the line (say it was in
+  // the background), the closed tab still means the command ended.
+  const gone = screen.isError && screen.data !== undefined
+  if ((done || gone) && !finished) setFinished(true)
   // Everything above the end marker is the command's own output.
   const output = done ? content.slice(0, done.index).trimEnd() : content
-  if (done) {
+  if (done || gone) {
     return (
       <div className="mb-4">
         <button
@@ -61,10 +63,12 @@ export function RunCard(props: {
           <span className="text-foreground truncate font-mono text-[0.8rem]">
             $ {props.run.command}
           </span>
-          <span className="shrink-0">· exit {done[1]}</span>
+          <span className="shrink-0">
+            {done ? `· exit ${done[1]}` : '· ended'}
+          </span>
         </button>
         <p className="text-muted-foreground mt-0.5 ml-5.5 font-mono text-xs">
-          Sent to {props.agentLabel}
+          Output saved · going to {props.agentLabel}
         </p>
         {open && (
           <pre className="bg-tray text-tray-foreground mt-2 max-h-80 overflow-auto rounded-lg px-3.5 py-3 font-mono text-[0.8rem] whitespace-pre-wrap">

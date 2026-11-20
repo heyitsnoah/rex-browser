@@ -858,3 +858,38 @@ test('! commands read as your command plus its output, and a terminal run as the
     ],
   )
 })
+
+test('Codex ! commands read like Claude ones, with a failed exit and a silent command', () => {
+  // Layout from a real ~/.codex/sessions rollout.
+  const shell = (command, exit, output) => ({
+    payload: {
+      content: [
+        {
+          text: `<user_shell_command>\n<command>\n${command}\n</command>\n<result>\nExit code: ${exit}\nDuration: 0.0220 seconds\nOutput:\n${output}\n</result>\n</user_shell_command>`,
+          type: 'input_text',
+        },
+      ],
+      role: 'user',
+      type: 'message',
+    },
+    type: 'response_item',
+  })
+  const { items } = parseTranscript(
+    jsonl([
+      shell('ls nope', 2, 'ls: nope: No such file'),
+      shell('true', 0, ''),
+    ]),
+    'codex',
+  )
+  assert.deepEqual(
+    items
+      .filter((item) => item.role !== 'tool')
+      .map((item) => [item.role, item.text, item.failed]),
+    [
+      ['user', '! ls nope', false],
+      ['result', 'ls: nope: No such file', true],
+      ['user', '! true', false],
+      ['result', '(no output)', false],
+    ],
+  )
+})

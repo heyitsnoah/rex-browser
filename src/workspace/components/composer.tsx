@@ -40,7 +40,9 @@ export function Composer(props: {
 }) {
   const [text, setText] = useState('')
   // Started with ! in an agent pane: the box is a terminal line and the text is a command.
-  const [shell, setShell] = useState(false)
+  const [shellOn, setShell] = useState(false)
+  // Only an agent pane has a terminal line; switching to a plain shell pane ends it.
+  const shell = shellOn && props.agentLabel !== undefined
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [menuIndex, setMenuIndex] = useState(0)
   const [menuClosed, setMenuClosed] = useState(false)
@@ -69,7 +71,7 @@ export function Composer(props: {
   const canSend =
     props.target !== undefined &&
     !uploading &&
-    (text.trim() !== '' || ready.length > 0)
+    (text.trim() !== '' || (!shell && ready.length > 0))
 
   function pick(name: string) {
     setText((current) => current.replace(/\/\S*$/, `/${name} `))
@@ -183,7 +185,7 @@ export function Composer(props: {
         {shell && (
           <p className="px-3.5 pt-2.5 text-[0.75rem] text-white/60">
             Runs in a terminal beside {props.agentLabel}; the output goes to it
-            when the command ends. Backspace past $ to leave.
+            when the command ends. Backspace on an empty line to leave.
           </p>
         )}
         {matches.length > 0 && (
@@ -325,7 +327,7 @@ export function Composer(props: {
         <div className="flex items-center gap-1.5 px-1.5 pt-1 pb-1.5">
           <button
             aria-label="Attach files"
-            className="text-muted-foreground hover:bg-muted hover:text-foreground grid size-8.5 place-items-center rounded-lg max-md:size-10"
+            className={`text-muted-foreground hover:bg-muted hover:text-foreground grid size-8.5 place-items-center rounded-lg max-md:size-10 ${shell ? 'invisible' : ''}`}
             disabled={!props.target}
             onClick={() => files.current?.click()}
             type="button"

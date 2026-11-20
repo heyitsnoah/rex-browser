@@ -52,7 +52,8 @@ export function detectPrompt(screen: string) {
   const question: string[] = []
   for (let index = first - 1; index >= Math.max(0, first - 12); index--) {
     const text = (lines[index] ?? '').trim()
-    if (!text || /^[─━-]+$/.test(text) || /^[←☐☒✔□■]/.test(text)) {
+    // Blank lines, rules and the top or bottom edge of a box end the question.
+    if (!text || /^[─━╭╮╰╯-]+$/.test(text) || /^[←☐☒✔□■]/.test(text)) {
       if (question.length) break
       continue
     }

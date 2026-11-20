@@ -293,7 +293,8 @@ export async function readTranscripts(request) {
     )
   }
   return {
-    candidates: candidates.slice(0, 100),
+    // A Claude session known exactly but not written yet has no conversation to offer instead.
+    candidates: exactId && exact.length === 0 ? [] : candidates.slice(0, 100),
     selected: chosen?.id,
     subagents: agents,
     text,

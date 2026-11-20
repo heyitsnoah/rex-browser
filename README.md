@@ -113,9 +113,11 @@ line. The command runs in a new tab on the same computer, in the agent's folder
 (through `script`, so prompts and logins work), shows live in the thread, and
 takes your typing when you click into it. When it ends, the output (escape codes
 stripped, last 400 lines, plus the exit code) is saved to
-`~/.local/state/rex-browser/runs/<id>.txt` and the agent runs `!cat` on it, so
-the output lands in its context. The tab closes when the command succeeds; a
-failed command keeps its tab open so you can see why.
+`~/.local/state/rex-browser/runs/<id>.txt` (not cleaned up automatically) and
+the agent runs `!cat` on it, so the output lands in its context. The hand-back
+waits while the agent shows a menu, so its Enter can't pick an option. The tab
+closes when the command succeeds; a failed command keeps its tab open so you can
+see why.
 
 ## Phone
 

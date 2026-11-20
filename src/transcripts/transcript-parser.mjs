@@ -123,19 +123,21 @@ export function parseTranscript(text, agent) {
   // own terminal from Rex Browser comes back as `cat …/rex-browser/runs/<id>.txt`; it reads as the
   // original command, with the output it saved.
   let shellCommand
-  function shellRun(command, output, id) {
+  function shellRun(command, output, id, failed = false) {
     const run = /rex-browser\/runs\/([0-9a-f]{8})\.txt/.exec(command)
-    const saved = run && /^\$ (.*?) {2}\(ran in a terminal\)\n/.exec(output)
+    const saved =
+      run && /^\$ ([\s\S]*?) {2}\(ran in a terminal\)\n/.exec(output)
     const shown = saved ? saved[1] : command
     const callId = run ? `run:${run[1]}` : `shell:${id}`
     add('user', `! ${shown}`, '', `${id}:you`)
     add('tool', { command: shown }, 'Terminal', callId)
     add(
       'result',
-      saved ? output.slice(saved[0].length) : output,
+      // A silent command still gets a result, or its step would look like it's still running.
+      (saved ? output.slice(saved[0].length) : output) || '(no output)',
       callId,
       `${id}:out`,
-      /\[exit [1-9]\d*\]\s*$/.test(output),
+      failed || /\[exit [1-9]\d*\]\s*$/.test(output),
     )
   }
   function userText(value, id) {
@@ -158,11 +160,16 @@ export function parseTranscript(text, agent) {
       return
     }
     const codex =
-      /^<user_shell_command>\s*<command>\s*([\s\S]*?)\s*<\/command>\s*<result>\s*[\s\S]*?Output:\n([\s\S]*?)\s*<\/result>/.exec(
+      /^<user_shell_command>\s*<command>\s*([\s\S]*?)\s*<\/command>\s*<result>\s*(?:Exit code: (\d+)\n)?[\s\S]*?Output:\n([\s\S]*?)\s*<\/result>/.exec(
         value,
       )
     if (codex) {
-      shellRun(codex[1], codex[2], id)
+      shellRun(
+        codex[1],
+        codex[3],
+        id,
+        codex[2] !== undefined && codex[2] !== '0',
+      )
       return
     }
     if (

@@ -222,7 +222,7 @@ function SessionRow(props: {
               <div className="group relative" key={tab.id}>
                 <button
                   aria-current={current}
-                  className={`flex h-7.5 w-full items-center rounded px-2 pr-8 text-left text-[0.8rem] max-md:h-11 max-md:text-[0.95rem] ${current ? 'bg-selected font-medium' : 'hover:bg-muted'}`}
+                  className={`flex h-7.5 w-full items-center rounded px-2 pr-8 text-left text-[0.8rem] max-md:h-11 max-md:pr-11 max-md:text-[0.95rem] ${current ? 'bg-selected font-medium' : 'hover:bg-muted'}`}
                   onClick={() =>
                     props.onSelect({
                       host: props.host,
@@ -235,12 +235,17 @@ function SessionRow(props: {
                   <span className="truncate">{tab.label}</span>
                 </button>
                 {closing === tab.id ? (
-                  <div className="bg-card absolute inset-0 flex items-center gap-1.5 rounded border px-2 text-[0.75rem]">
+                  <div
+                    className="bg-card absolute inset-0 flex items-center gap-1.5 rounded border px-2 text-[0.75rem]"
+                    onKeyDown={(event) => {
+                      if (event.key === 'Escape') setClosing(undefined)
+                    }}
+                  >
                     <span className="text-muted-foreground mr-auto truncate">
                       Close tab? Its programs stop.
                     </span>
                     <button
-                      className="bg-destructive rounded px-1.5 py-0.5 font-medium text-white"
+                      className="bg-destructive/10 text-destructive hover:bg-destructive/20 dark:bg-destructive/20 rounded px-1.5 py-0.5 font-medium"
                       onClick={() => {
                         setClosing(undefined)
                         props
@@ -260,6 +265,8 @@ function SessionRow(props: {
                       Close
                     </button>
                     <button
+                      // The safe choice gets focus, so a keyboard user lands on the confirm.
+                      autoFocus
                       className="hover:bg-muted rounded px-1.5 py-0.5"
                       onClick={() => setClosing(undefined)}
                       type="button"

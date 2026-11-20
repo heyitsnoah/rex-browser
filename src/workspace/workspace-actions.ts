@@ -8,6 +8,8 @@ import { readScreen } from '@/rex/hidden-terminal'
 import { requireActionAccess } from '@/rex/rex-access'
 import { rex, rexJson } from '@/rex/rex-cli'
 import { requireHost } from '@/rex/rex-hosts'
+import { detectPrompt } from '@/workspace/detect-prompt'
+import { RUN_DONE_FORMAT, runDonePattern } from '@/workspace/run-marker'
 
 /** Types `data` into the pane as keystrokes (e.g. "\r" for Enter, a digit to answer a menu). */
 export const writeToPaneAction = requireActionAccess(
@@ -111,7 +113,7 @@ if script --version >/dev/null 2>&1; then script -qfec "$cmd" "$d/${id}.raw"; el
 code=$?
 { printf '$ %s  (ran in a terminal)\\n' "$cmd"; perl -pe 's/\\e\\[[0-9;?]*[ -\\/]*[@-~]//g; s/\\e\\][^\\a\\e]*(\\a|\\e\\\\)//g; s/\\e[()][A-Z0-9]//g; s/\\r//g' "$d/${id}.raw" | sed -e '/^Script started on /d' -e '/^Script done on /d' | tail -n 400; printf '[exit %s]\\n' "$code"; } > "$d/${id}.txt"
 rm -f "$d/${id}.raw"
-printf '\\nREXRUN-%s-DONE exit %s · output sent to the agent\\n' '${id}' "$code"
+printf '\\n${RUN_DONE_FORMAT} · output saved for the agent\\n' '${id}' "$code"
 exec "\${SHELL:-sh}" -l`
     const { block_ids: blocks, window_id: tab } = await rexJson({
       args: [
@@ -151,6 +153,64 @@ exec "\${SHELL:-sh}" -l`
   },
 )
 
+// One hand-back at a time per agent pane, so two runs ending together don't type into each other.
+const handBacks = new Map<string, Promise<void>>()
+
+async function deliver(props: {
+  agentBlock: string
+  file: string
+  host: string
+  session: string
+  succeeded: boolean
+  tab: string
+}) {
+  // While the agent shows a menu (a permission prompt, a question), Enter would pick its highlighted
+  // option, so wait for it to clear.
+  for (let tries = 0; tries < 900; tries++) {
+    const agentScreen = await readScreen({
+      block: props.agentBlock,
+      host: props.host,
+      session: props.session,
+    })
+    if (!detectPrompt(agentScreen)) break
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+  }
+  await rex(props.host, [
+    'api',
+    'call',
+    '-s',
+    props.session,
+    'block.event',
+    JSON.stringify({
+      block_id: props.agentBlock,
+      event: { payload: { text: `!cat "${props.file}"` }, type: 'paste' },
+      session_id: props.session,
+    }),
+  ])
+  await new Promise((resolve) => setTimeout(resolve, 120))
+  await rex(props.host, [
+    'block',
+    'call',
+    '-s',
+    props.session,
+    '-b',
+    props.agentBlock,
+    'write',
+    JSON.stringify({ data: '\r' }),
+  ])
+  // A command that worked has nothing left to see; a failed one keeps its tab so you can look.
+  if (props.succeeded) {
+    await rex(props.host, [
+      'api',
+      'call',
+      '-s',
+      props.session,
+      'session.close_window',
+      JSON.stringify({ session_id: props.session, window_id: props.tab }),
+    ])
+  }
+}
+
 async function handBack(props: {
   agentBlock: string
   file: string
@@ -161,56 +221,41 @@ async function handBack(props: {
   tab: string
 }) {
   const deadline = Date.now() + 60 * 60 * 1000
-  try {
-    while (Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      const screen = await readScreen({
+  let failures = 0
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    let screen: string
+    try {
+      screen = await readScreen({
         block: props.runBlock,
         host: props.host,
         session: props.session,
       })
-      const done = new RegExp(`REXRUN-${props.id}-DONE exit (\\d+)`).exec(
-        screen,
-      )
-      if (!done) continue
-      await rex(props.host, [
-        'api',
-        'call',
-        '-s',
-        props.session,
-        'block.event',
-        JSON.stringify({
-          block_id: props.agentBlock,
-          event: { payload: { text: `!cat "${props.file}"` }, type: 'paste' },
-          session_id: props.session,
-        }),
-      ])
-      await new Promise((resolve) => setTimeout(resolve, 120))
-      await rex(props.host, [
-        'block',
-        'call',
-        '-s',
-        props.session,
-        '-b',
-        props.agentBlock,
-        'write',
-        JSON.stringify({ data: '\r' }),
-      ])
-      // A command that worked has nothing left to see; a failed one keeps its tab so you can look.
-      if (done[1] === '0') {
-        await rex(props.host, [
-          'api',
-          'call',
-          '-s',
-          props.session,
-          'session.close_window',
-          JSON.stringify({ session_id: props.session, window_id: props.tab }),
-        ])
-      }
+      failures = 0
+    } catch (error) {
+      // A brief Rex or network failure is retried; ten in a row means the tab or computer is gone.
+      if (++failures < 10) continue
+      console.error(`Run ${props.id}: its terminal can't be read`, error)
       return
     }
-  } catch (error) {
-    // Nobody is waiting on this promise: the tab closed or the computer went away. Its output stays in the file.
-    console.error(`Rex tab ${props.runBlock}: hand-back failed`, error)
+    const done = runDonePattern(props.id).exec(screen)
+    if (!done) continue
+    const delivery = (
+      handBacks.get(props.agentBlock) ?? Promise.resolve()
+    ).then(() => deliver({ ...props, succeeded: done[1] === '0' }))
+    handBacks.set(
+      props.agentBlock,
+      delivery.catch(() => undefined),
+    )
+    try {
+      await delivery
+    } catch (error) {
+      // Nobody is waiting on this promise; the output stays in the file.
+      console.error(`Run ${props.id}: hand-back failed`, error)
+    }
+    return
   }
+  console.error(
+    `Run ${props.id}: no end after an hour; its output stays in ${props.file}`,
+  )
 }

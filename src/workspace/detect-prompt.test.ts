@@ -72,8 +72,10 @@ test('a numbered list above a permission menu is not part of the menu', () => {
 })
 
 test('a question drawn inside a box loses its side borders', () => {
-  const screen = `│ Which direction? See                │
+  const screen = `╭──────────────────────────────────────╮
+│ Which direction? See                 │
 │ https://example.com/canvas/1         │
+╰──────────────────────────────────────╯
 
 ❯ 1. First
   2. Second
