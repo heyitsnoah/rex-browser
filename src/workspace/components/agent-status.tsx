@@ -63,6 +63,11 @@ export function AgentStatus(props: {
     setBusy(true)
     setChosen((current) => ({ ...current, [setting.kind]: setting.value }))
     setClaudeSettingAction({ ...props.target, setting })
+      .then(({ error }) => {
+        if (error === undefined) return
+        setChosen((current) => ({ ...current, [setting.kind]: undefined }))
+        toast.error(`Change failed: ${error}`)
+      })
       .catch((error: unknown) => {
         setChosen((current) => ({ ...current, [setting.kind]: undefined }))
         toast.error(
