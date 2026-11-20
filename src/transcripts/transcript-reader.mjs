@@ -161,11 +161,15 @@ export async function readTranscripts(request) {
         .filter((c) => c.created >= started - 10000)
         .sort((a, b) => b.created - a.created)
     : []
+  // Claude names its session exactly; until that file exists (no message yet) there is no transcript,
+  // and guessing by start time could pick another agent's conversation in the same folder.
   const chosen = request.id
     ? candidates.find((c) => c.id === request.id)
     : exact.length > 0
       ? exact[0]
-      : since[0]
+      : exactId
+        ? undefined
+        : since[0]
   let text
   let truncated = false
   if (chosen) {
