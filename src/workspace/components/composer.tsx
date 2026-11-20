@@ -1,7 +1,7 @@
 'use client'
 
 import { ArrowUpIcon, PaperclipIcon, XIcon } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { type ReactNode, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import type { PaneTarget } from '@/workspace/workspace-queries'
@@ -35,7 +35,7 @@ export function Composer(props: {
   /** Runs a `!` command in a terminal beside the agent. */
   readonly onRun: (command: string) => Promise<void>
   /** The agent's model, context size, branch and mode, as its own status line shows them. */
-  readonly status: string | undefined
+  readonly status: ReactNode
   readonly target: PaneTarget | undefined
 }) {
   const [text, setText] = useState('')
@@ -47,8 +47,14 @@ export function Composer(props: {
   const [menuIndex, setMenuIndex] = useState(0)
   const [menuClosed, setMenuClosed] = useState(false)
   const files = useRef<HTMLInputElement>(null)
-  // The /word being typed at the end, at the start or after a space, so several skills can share a message.
-  const slashQuery = shell ? undefined : /(?:^|\s)\/(\S*)$/.exec(text)?.[1]
+  const box = useRef<HTMLTextAreaElement>(null)
+  // Where the cursor is; the / menu completes the word just before it.
+  const [caret, setCaret] = useState(0)
+  // The /word being typed before the cursor, at the start or after a space, so several skills can share
+  // a message and one can be added mid-message.
+  const slashQuery = shell
+    ? undefined
+    : /(?:^|\s)\/(\S*)$/.exec(text.slice(0, caret))?.[1]
   const commands = useSlashCommands(
     props.target,
     props.agentLabel !== undefined && slashQuery !== undefined,
@@ -74,8 +80,14 @@ export function Composer(props: {
     (text.trim() !== '' || (!shell && ready.length > 0))
 
   function pick(name: string) {
-    setText((current) => current.replace(/\/\S*$/, `/${name} `))
+    const before = text.slice(0, caret).replace(/\/\S*$/, `/${name} `)
+    setText(before + text.slice(caret).replace(/^\S*[ \t]?/, ''))
+    setCaret(before.length)
     setMenuClosed(true)
+    // Put the cursor after the inserted name once React has rendered the new text (a DOM side effect).
+    requestAnimationFrame(() =>
+      box.current?.setSelectionRange(before.length, before.length),
+    )
   }
 
   async function upload(file: File) {
@@ -260,6 +272,7 @@ export function Composer(props: {
             className={`block field-sizing-content max-h-44 min-h-11 w-full resize-none bg-transparent px-3.5 pt-3 pb-1 text-sm outline-none max-md:text-base ${shell ? 'pl-2 font-mono' : ''}`}
             onChange={(event) => {
               const value = event.target.value
+              setCaret(event.target.selectionStart)
               // A leading ! in an agent pane switches to a terminal line (typed or pasted).
               if (!shell && props.agentLabel && value.startsWith('!')) {
                 setShell(true)
@@ -313,6 +326,7 @@ export function Composer(props: {
               event.preventDefault()
               pasted.forEach((file) => void upload(file))
             }}
+            onSelect={(event) => setCaret(event.currentTarget.selectionStart)}
             placeholder={
               shell
                 ? 'command'
@@ -320,6 +334,7 @@ export function Composer(props: {
                   ? `Reply to ${props.agentLabel} · / for skills`
                   : 'Text or command'
             }
+            ref={box}
             rows={1}
             value={text}
           />

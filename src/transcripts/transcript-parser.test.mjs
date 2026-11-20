@@ -1106,6 +1106,7 @@ test('Pi working state tracks user, toolUse, toolResult, stop, error, Esc abort,
   assert.deepEqual(afterDone.status, {
     branch: '',
     context: 27000,
+    effort: '',
     mode: 'low',
     model: 'anthropic/claude-haiku-4.5',
   })
@@ -1276,6 +1277,39 @@ test('Pi /skill:<name> blocks, inline images, and custom_message visibility pars
       ['user', '/skill:ax-cli', 'show help', undefined],
       ['attachment', '', 'Image', { data: 'iVBORw0KGgo=', mime: 'image/png' }],
       ['summary', '', 'Extension notice', undefined],
+    ],
+  )
+})
+
+test('Claude ! output is unescaped', () => {
+  const user = (uuid, parentUuid, content) => ({
+    message: { content, role: 'user' },
+    parentUuid,
+    type: 'user',
+    uuid,
+  })
+  const { items } = parseTranscript(
+    jsonl([
+      user(
+        'a',
+        null,
+        '<bash-input>cat "$HOME/.local/state/rex-browser/runs/e6f6efe6.txt"</bash-input>',
+      ),
+      user(
+        'b',
+        'a',
+        '<bash-stdout>$ git checkout main &amp;&amp; git pull  (ran in a terminal)\nerror: &lt;main&gt; not found\n\n[exit 1]</bash-stdout><bash-stderr></bash-stderr>',
+      ),
+    ]),
+    'claude',
+  )
+  assert.deepEqual(
+    items
+      .filter((item) => item.role !== 'tool')
+      .map((item) => [item.role, item.text]),
+    [
+      ['user', '! git checkout main && git pull'],
+      ['result', 'error: <main> not found\n\n[exit 1]'],
     ],
   )
 })

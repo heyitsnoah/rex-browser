@@ -31,12 +31,13 @@ export async function readAgentProcess(props: {
     ...(info.ancestors ?? []),
     info.child,
   ].filter((p) => p !== undefined)
+  const seen = processes.map(detectAgent).find((agent) => agent !== undefined)
   return {
-    agent:
-      processes.map(detectAgent).find((agent) => agent !== undefined) ??
-      // Started through a wrapper (`eh pi …`, `zsh -lc 'pi …'`), the agent shares the wrapper's
-      // process group, so Rex reports the wrapper; the agent still reports itself via program_status.
-      (await reportedAgent({ ...props, processes })),
+    // Started through a wrapper (`eh pi …`, `zsh -lc 'claude …'`), the agent shares the wrapper's
+    // process group, so Rex reports the wrapper; the agent still reports itself via program_status.
+    agent: seen ?? (await reportedAgent({ ...props, processes })),
+    // Then the agent is a child of these processes, which the transcript reader looks up.
+    byShell: seen === undefined,
     cwd: info.foreground?.cwd ?? info.child?.cwd,
     pids: processes.map((p) => p.pid),
   }

@@ -10,6 +10,7 @@ import type { PendingMessage } from '@/workspace/components/conversation-view'
 import type { Run } from '@/workspace/components/run-card'
 import type { Selection } from '@/workspace/components/session-rail'
 
+import { AgentStatus } from '@/workspace/components/agent-status'
 import { Composer } from '@/workspace/components/composer'
 import { PaneGrid } from '@/workspace/components/pane-grid'
 import { SessionRail } from '@/workspace/components/session-rail'
@@ -336,46 +337,22 @@ export function Workspace() {
               ]),
             )
           }}
-          status={agent?.status && statusLine(agent.status)}
+          status={
+            agent?.status &&
+            target && (
+              <AgentStatus
+                agent={agent.agent}
+                // Remounts when the transcript catches up, dropping a shown-but-unconfirmed choice.
+                key={`${target.block}|${agent.status.model}|${agent.status.effort}`}
+                status={agent.status}
+                target={target}
+                working={agent.working}
+              />
+            )
+          }
           target={target}
         />
       </main>
     </div>
   )
-}
-
-const MODES: Record<string, string> = {
-  acceptEdits: 'accept edits',
-  auto: 'auto mode',
-  bypassPermissions: 'bypass permissions',
-  high: 'high thinking',
-  low: 'low thinking',
-  max: 'max thinking',
-  medium: 'medium thinking',
-  minimal: 'minimal thinking',
-  off: 'thinking off',
-  plan: 'plan mode',
-  xhigh: 'xhigh thinking',
-}
-
-function statusLine(status: {
-  branch: string
-  context: number
-  mode: string
-  model: string
-}) {
-  // claude-opus-5-5 or anthropic/claude-haiku-4.5 → Opus 5.5 / Haiku 4.5
-  const model = /^(?:[a-z0-9-]+\/)?claude-([a-z]+)-(\d+)[.-](\d+)/.exec(
-    status.model,
-  )
-  return [
-    model
-      ? `${model[1].charAt(0).toUpperCase()}${model[1].slice(1)} ${model[2]}.${model[3]}`
-      : status.model,
-    status.context ? `${status.context.toLocaleString()} context` : '',
-    status.branch && `⎇ ${status.branch}`,
-    MODES[status.mode] ?? '',
-  ]
-    .filter(Boolean)
-    .join(' · ')
 }
