@@ -108,7 +108,7 @@ export function decodeFramed(output: string) {
   ) as unknown
 }
 
-async function readScreen(props: {
+export async function readScreen(props: {
   block: string
   host: string
   session: string

@@ -106,6 +106,19 @@ built-in commands and installed skills from that computer (`~/.claude/skills`,
 `~/.local/state/rex-browser/uploads/<uuid>/` on the pane's computer (folder 700,
 file 600, 25 MB max) and are not cleaned up automatically.
 
+### `!` commands
+
+In an agent pane, a message starting with `!` turns the box into a terminal
+line. The command runs in a new tab on the same computer, in the agent's folder
+(through `script`, so prompts and logins work), shows live in the thread, and
+takes your typing when you click into it. When it ends, the output (escape codes
+stripped, last 400 lines, plus the exit code) is saved to
+`~/.local/state/rex-browser/runs/<id>.txt` (not cleaned up automatically) and
+the agent runs `!cat` on it, so the output lands in its context. The hand-back
+waits while the agent shows a menu, so its Enter can't pick an option. The tab
+closes when the command succeeds; a failed command keeps its tab open so you can
+see why.
+
 ## Phone
 
 Under 48rem the list is a full-screen panel: open it with the menu button or a

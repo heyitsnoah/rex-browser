@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 
 import type { PendingMessage } from '@/workspace/components/conversation-view'
+import type { Run } from '@/workspace/components/run-card'
 import type { Selection } from '@/workspace/components/session-rail'
 
 import { Composer } from '@/workspace/components/composer'
@@ -15,7 +16,12 @@ import { SessionRail } from '@/workspace/components/session-rail'
 import { WorkspaceHeader } from '@/workspace/components/workspace-header'
 import { AGENT_NAMES, paneAgent } from '@/workspace/pane-agent'
 import { isSubagentRunning } from '@/workspace/subagent-status'
-import { newTabAction, writeToPaneAction } from '@/workspace/workspace-actions'
+import {
+  closeTabAction,
+  newTabAction,
+  runInNewTabAction,
+  writeToPaneAction,
+} from '@/workspace/workspace-actions'
 import {
   useConversation,
   useHosts,
@@ -47,6 +53,7 @@ export function Workspace() {
   const [typing, setTyping] = useState(false)
   const [transcripts, setTranscripts] = useState(new Map<string, string>())
   const [pending, setPending] = useState(new Map<string, PendingMessage[]>())
+  const [runs, setRuns] = useState(new Map<string, Run[]>())
   // Read by the touch handlers only: where the current touch started.
   const touchStart = useRef<{ x: number; y: number }>(undefined)
 
@@ -187,6 +194,12 @@ export function Workspace() {
         hosts={hosts.data}
         hostsError={hosts.error?.message}
         onClose={() => setNav(false)}
+        onCloseTab={async (closed) => {
+          await closeTabAction(closed)
+          await queryClient.invalidateQueries({
+            queryKey: ['tabs', closed.host, closed.session],
+          })
+        }}
         onNewTab={async (tabProps) => {
           await newTabAction(tabProps)
           await queryClient.invalidateQueries({
@@ -231,8 +244,25 @@ export function Workspace() {
                   setTranscripts((current) => new Map(current).set(block, id)),
                 onDrawerResize: setDrawerRem,
                 onInput: (data) => input(block, data),
+                onOpenRun: (run) =>
+                  select({
+                    host: run.host,
+                    session: run.session,
+                    tab: run.tab,
+                  }),
                 onOpenTerminal: () =>
                   !drawers.has(block) && toggleDrawer(block),
+                onRunInput: (run, data) =>
+                  writeToPaneAction({
+                    block: run.block,
+                    data,
+                    host: run.host,
+                    session: run.session,
+                  }).catch((error: unknown) =>
+                    toast.error(
+                      `Input failed: ${error instanceof Error ? error.message : 'unknown error'}`,
+                    ),
+                  ),
                 onSelect: () => {
                   // A new target always starts in Compose (DESIGN.md, Input mode).
                   if (block === active) return
@@ -240,6 +270,7 @@ export function Workspace() {
                   setTyping(false)
                 },
                 pending: pending.get(block) ?? [],
+                runs: runs.get(block) ?? [],
                 transcript: transcripts.get(block),
                 typing,
               })}
@@ -294,6 +325,16 @@ export function Workspace() {
                   ),
                 ),
             }
+          }}
+          onRun={async (command) => {
+            if (!target) return
+            const started = await runInNewTabAction({ ...target, command })
+            setRuns((current) =>
+              new Map(current).set(target.block, [
+                ...(current.get(target.block) ?? []),
+                { ...started, at: Date.now(), command, host, session },
+              ]),
+            )
           }}
           status={agent?.status && statusLine(agent.status)}
           target={target}

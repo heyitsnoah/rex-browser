@@ -145,3 +145,14 @@ loopback plus one Tailscale login, enforced per entry point by access wrappers.
 Rex's text screen format replaced the vendored Ghostty WASM. Added in the same
 change: `/` autocomplete for each agent's skills, swipe-from-left to open the
 list on phones, and full question text in the answer card.
+
+## 2026-11-20: ! runs in a terminal
+
+First step toward Rex Browser as the harness. Three ways to show a `!` command
+were mocked (`docs/design/bang/a-inline-run`, `b-tab-first`, `c-rex-speaks`;
+canvas ops in `docs/design/bang/canvas-ops.json`). Noah rejected all three: the
+feature is about the terminal, and Rex is background infrastructure that
+shouldn't appear in the UI. Chosen: `d-terminal`. `!` turns the box into a
+terminal line; the command runs in its own terminal beside the agent, shows live
+in the thread (type into it to answer prompts), folds to one line when it ends,
+and its output goes to the agent.

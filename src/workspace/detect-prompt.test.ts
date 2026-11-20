@@ -70,3 +70,17 @@ test('a numbered list above a permission menu is not part of the menu', () => {
     'No, and tell Claude what to do differently (esc)',
   ])
 })
+
+test('a question drawn inside a box loses its side borders', () => {
+  const screen = `╭──────────────────────────────────────╮
+│ Which direction? See                 │
+│ https://example.com/canvas/1         │
+╰──────────────────────────────────────╯
+
+❯ 1. First
+  2. Second
+Enter to select · Esc to cancel`
+  expect(detectPrompt(screen)?.question).toBe(
+    'Which direction? See https://example.com/canvas/1',
+  )
+})
