@@ -109,13 +109,13 @@ file 600, 25 MB max) and are not cleaned up automatically.
 ### `!` commands
 
 In an agent pane, a message starting with `!` turns the box into a terminal
-line. The command runs in a new tab on the same computer, in the agent's
-folder (through `script`, so prompts and logins work), shows live in the
-thread, and takes your typing when you click into it. When it ends, the
-output (escape codes stripped, last 400 lines, plus the exit code) is saved
-to `~/.local/state/rex-browser/runs/<id>.txt` and the agent runs `!cat` on
-it, so the output lands in its context. The tab stays open; close it from
-the list (each tab has an X that asks first).
+line. The command runs in a new tab on the same computer, in the agent's folder
+(through `script`, so prompts and logins work), shows live in the thread, and
+takes your typing when you click into it. When it ends, the output (escape codes
+stripped, last 400 lines, plus the exit code) is saved to
+`~/.local/state/rex-browser/runs/<id>.txt` and the agent runs `!cat` on it, so
+the output lands in its context. The tab closes when the command succeeds; a
+failed command keeps its tab open so you can see why.
 
 ## Phone
 

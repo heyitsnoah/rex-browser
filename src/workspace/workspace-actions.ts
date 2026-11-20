@@ -145,6 +145,7 @@ exec "\${SHELL:-sh}" -l`
       id,
       runBlock: blocks[0],
       session: props.session,
+      tab,
     })
     return { block: blocks[0], id, tab }
   },
@@ -157,6 +158,7 @@ async function handBack(props: {
   id: string
   runBlock: string
   session: string
+  tab: string
 }) {
   const deadline = Date.now() + 60 * 60 * 1000
   try {
@@ -167,7 +169,10 @@ async function handBack(props: {
         host: props.host,
         session: props.session,
       })
-      if (!screen.includes(`REXRUN-${props.id}-DONE`)) continue
+      const done = new RegExp(`REXRUN-${props.id}-DONE exit (\\d+)`).exec(
+        screen,
+      )
+      if (!done) continue
       await rex(props.host, [
         'api',
         'call',
@@ -191,6 +196,17 @@ async function handBack(props: {
         'write',
         JSON.stringify({ data: '\r' }),
       ])
+      // A command that worked has nothing left to see; a failed one keeps its tab so you can look.
+      if (done[1] === '0') {
+        await rex(props.host, [
+          'api',
+          'call',
+          '-s',
+          props.session,
+          'session.close_window',
+          JSON.stringify({ session_id: props.session, window_id: props.tab }),
+        ])
+      }
       return
     }
   } catch (error) {
