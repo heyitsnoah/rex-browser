@@ -1,0 +1,4 @@
+# prettier specific (.gitignore is already included)
+/.claude/**/*.md
+/drizzle
+/pnpm-lock.yaml

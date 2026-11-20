@@ -1,5 +1,21 @@
-node_modules/
+# format:
+# - all paths **must** start with a slash
+# - directories **must** end with a slash
+# - files **must not** end with a slash
+# - subdirectory matching must be explicit for better compatibility (ex., `node_modules` does not match `packages/foo/node_modules`)
+# - there must only be one .gitignore in the root of the project
+# - exclude OS specific files globally (ex., `.DS_Store`)
 
-tmp/qa/
+/.claude/settings.local.json
+/.env
+/.next/
+/.worktrees/
+/build/
+/dotenv/.env.keys
+/dotenv/.env*.local
+/next-env.d.ts
+/node_modules/
+/tmp/
 
-.rex-transcripts.json
+# Per-machine transcript access (local or SSH); see README
+/.rex-transcripts.json

@@ -1,0 +1,17 @@
+allowBuilds:
+  '@swc/core': true
+  cbor-extract: true
+  core-js: false
+  esbuild: true
+  msw: false
+  sharp: true
+  unrs-resolver: true
+
+minimumReleaseAgeExclude:
+  - '@alephic/*'
+
+overrides:
+  # GHSA-mrhx-c7xc-m3w5
+  '@vercel/cli-auth>zod@<4.6.6': ^4.6.6
+  # GHSA-g3hv-75wg-m249
+  '@swc/cli>minimatch@<11.0.1': ^11.0.1

@@ -13,98 +13,219 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 const fonts = fs.readFileSync(path.join(here, 'fonts.css'), 'utf8')
 
 const icons = {
+  agent:
+    '<rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 3v4M9 13h.01M15 13h.01"/>',
+  arrowUp: '<path d="M12 19V5M5 12l7-7 7 7"/>',
+  check: '<path d="m5 12 5 5L20 7"/>',
   chevron: '<path d="m9 18 6-6-6-6"/>',
   down: '<path d="m6 9 6 6 6-6"/>',
+  edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
+  globe:
+    '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+  image:
+    '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/>',
+  panelBottom:
+    '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 15h18"/>',
+  panelRight:
+    '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/>',
   plus: '<path d="M5 12h14M12 5v14"/>',
-  refresh: '<path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/>',
-  terminal: '<path d="m4 17 6-6-6-6M12 19h8"/>',
+  refresh:
+    '<path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
-  file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
-  edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
-  agent: '<rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 3v4M9 13h.01M15 13h.01"/>',
-  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
-  panelBottom: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 15h18"/>',
-  panelRight: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/>',
-  check: '<path d="m5 12 5 5L20 7"/>',
+  terminal: '<path d="m4 17 6-6-6-6M12 19h8"/>',
   x: '<path d="M18 6 6 18M6 6l12 12"/>',
-  image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/>',
-  arrowUp: '<path d="M12 19V5M5 12l7-7 7 7"/>',
 }
 const ico = (name, size = 16) =>
   `<svg aria-hidden="true" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${icons[name]}</svg>`
-const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+const esc = (s) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
 // ---------- Content (shared by all tiles) ----------
 const turns = [
   {
+    answer: `<p>Yes, the server is running. It's at <code>http://127.0.0.1:4317</code> and returns 200. It's <code>node --experimental-strip-types server.ts</code>, PID 2482362, started from this repo at 08:01 today.</p>
+<p>One catch: it started two minutes before the transcript-view commit (<code>d46a016</code>). The pages under <code>public/</code> are reread on every request, so browser-side changes show up. Changes to <code>server.ts</code> itself need a restart.</p>`,
+    duration: '14s',
     time: '09:24',
     user: 'is the server running',
     work: [
-      { tool: 'Bash', kind: 'terminal', label: 'Find server port and check for running process', cmd: 'grep -nE "PORT|listen" server.ts; pgrep -af server.ts', out: '96:server.listen(4317,\'127.0.0.1\',…)\n2482362 node --experimental-strip-types server.ts', dur: '0.4s' },
-      { tool: 'Bash', kind: 'terminal', label: 'Check server process age and HTTP response', cmd: 'ps -o pid,lstart,etime -p 2482362; curl -s -o /dev/null -w "%{http_code}" 127.0.0.1:4317/', out: '2482362  Fri Nov 20 08:01:36 2026  01:24:28\n200', dur: '0.3s' },
+      {
+        cmd: 'grep -nE "PORT|listen" server.ts; pgrep -af server.ts',
+        dur: '0.4s',
+        kind: 'terminal',
+        label: 'Find server port and check for running process',
+        out: "96:server.listen(4317,'127.0.0.1',…)\n2482362 node --experimental-strip-types server.ts",
+        tool: 'Bash',
+      },
+      {
+        cmd: 'ps -o pid,lstart,etime -p 2482362; curl -s -o /dev/null -w "%{http_code}" 127.0.0.1:4317/',
+        dur: '0.3s',
+        kind: 'terminal',
+        label: 'Check server process age and HTTP response',
+        out: '2482362  Fri Nov 20 08:01:36 2026  01:24:28\n200',
+        tool: 'Bash',
+      },
     ],
-    duration: '14s',
-    answer: `<p>Yes, the server is running. It's at <code>http://127.0.0.1:4317</code> and returns 200. It's <code>node --experimental-strip-types server.ts</code>, PID 2482362, started from this repo at 08:01 today.</p>
-<p>One catch: it started two minutes before the transcript-view commit (<code>d46a016</code>). The pages under <code>public/</code> are reread on every request, so browser-side changes show up. Changes to <code>server.ts</code> itself need a restart.</p>`,
   },
   {
-    time: '09:26',
-    user: "that's not looking great yet",
-    image: 'CleanShot 2026-11-20 at 9.26.24 AM.png',
-    user2: "and why isn't transcript access configured",
-    work: [
-      { tool: 'Bash', kind: 'terminal', label: 'Show transcript view changes in client and server', dur: '0.2s' },
-      { tool: 'Bash', kind: 'terminal', label: 'Read page styles and transcript config', dur: '0.1s' },
-      { tool: 'Bash', kind: 'terminal', label: 'List Rex hosts, local hostname, SSH aliases', dur: '1.1s' },
-      { tool: 'Bash', kind: 'terminal', label: 'Check whether rex-fw is this machine', dur: '0.6s' },
-      { tool: 'Bash', kind: 'terminal', label: 'Test passwordless SSH to the other Rex computers', dur: '9.8s', fail: true },
-      { tool: 'Bash', kind: 'terminal', label: 'Add rex-fw as a local transcript host', dur: '0.1s' },
-      { tool: 'Read', kind: 'file', label: 'public/client.js', dur: '0.1s' },
-      { tool: 'Edit', kind: 'edit', label: 'public/client.js', dur: '0.1s' },
-      { tool: 'Edit', kind: 'edit', label: 'public/index.html', dur: '0.1s' },
-      { tool: 'Bash', kind: 'terminal', label: 'Screenshot the rex-fw Claude pane via headless Chrome', dur: '21s' },
-    ],
-    duration: '6m 02s',
     answer: `<p>I've fixed the pane you screenshotted, and rex-fw can now read its transcripts. rex-mbp, rex-mini and rex-omarchy still can't, because nothing on them accepts a connection from this server yet.</p>
 <ul><li><strong>No more dead end.</strong> Agent panes on a computer without transcript access open straight to the terminal.</li><li><strong>Tool calls are one row each</strong>, with the tool name and a readable summary.</li><li><strong>rex-fw is configured</strong> as a local host in <code>.rex-transcripts.json</code>.</li></ul>
 <table><thead><tr><th>Computer</th><th>Result</th></tr></thead><tbody><tr><td>rex-mbp, rex-mini, rex-omarchy</td><td>SSH connection refused</td></tr><tr><td><code>mini</code> alias</td><td>Rejects this laptop's key</td></tr></tbody></table>`,
+    duration: '6m 02s',
+    image: 'CleanShot 2026-11-20 at 9.26.24 AM.png',
+    time: '09:26',
+    user: "that's not looking great yet",
+    user2: "and why isn't transcript access configured",
+    work: [
+      {
+        dur: '0.2s',
+        kind: 'terminal',
+        label: 'Show transcript view changes in client and server',
+        tool: 'Bash',
+      },
+      {
+        dur: '0.1s',
+        kind: 'terminal',
+        label: 'Read page styles and transcript config',
+        tool: 'Bash',
+      },
+      {
+        dur: '1.1s',
+        kind: 'terminal',
+        label: 'List Rex hosts, local hostname, SSH aliases',
+        tool: 'Bash',
+      },
+      {
+        dur: '0.6s',
+        kind: 'terminal',
+        label: 'Check whether rex-fw is this machine',
+        tool: 'Bash',
+      },
+      {
+        dur: '9.8s',
+        fail: true,
+        kind: 'terminal',
+        label: 'Test passwordless SSH to the other Rex computers',
+        tool: 'Bash',
+      },
+      {
+        dur: '0.1s',
+        kind: 'terminal',
+        label: 'Add rex-fw as a local transcript host',
+        tool: 'Bash',
+      },
+      { dur: '0.1s', kind: 'file', label: 'public/client.js', tool: 'Read' },
+      { dur: '0.1s', kind: 'edit', label: 'public/client.js', tool: 'Edit' },
+      { dur: '0.1s', kind: 'edit', label: 'public/index.html', tool: 'Edit' },
+      {
+        dur: '21s',
+        kind: 'terminal',
+        label: 'Screenshot the rex-fw Claude pane via headless Chrome',
+        tool: 'Bash',
+      },
+    ],
   },
   {
+    lead: `<p>Preflight passes. This is the "design exists, isn't good yet" branch, as you said. I'll run the T3 Code research in the background while I capture and critique the current UI.</p>`,
+    live: true,
+    skill: 'alephic-design',
     time: '09:31',
     user: 'this looks terrible, can we redesign the actual ui (you can check stuff like t3 etc) and also the terminal button up there is weird',
-    skill: 'alephic-design',
-    live: true,
     work: [
-      { tool: 'Bash', kind: 'terminal', label: 'Run design skill preflight checks', dur: '2.3s' },
-      { tool: 'Read', kind: 'file', label: 'references/improve-existing.md', dur: '0.1s' },
-      { tool: 'Agent', kind: 'agent', label: 'Research T3 Code agent UI', subagent: { type: 'general-purpose', background: true, elapsed: '4m 12s', tools: 38, now: { tool: 'WebSearch', label: 'Codex app terminal toggle shortcut' }, recent: [
-        { tool: 'Bash', kind: 'terminal', label: 'Clone pingdotgg/t3code into scratchpad' },
-        { tool: 'Read', kind: 'file', label: 'apps/web/src/components/chat/WorkLog.tsx' },
-        { tool: 'Read', kind: 'file', label: 'apps/web/src/components/chat/TimelineWorkGroupRows.tsx' },
-        { tool: 'WebFetch', kind: 'globe', label: 'developers.openai.com/codex/app/features' },
-      ] } },
-      { tool: 'Bash', kind: 'terminal', label: 'Capture incumbent screenshots for tile 0', dur: '34s' },
-      { tool: 'Bash', kind: 'terminal', label: 'Run impeccable anti-pattern detection on UI', running: true, elapsed: '18s' },
+      {
+        dur: '2.3s',
+        kind: 'terminal',
+        label: 'Run design skill preflight checks',
+        tool: 'Bash',
+      },
+      {
+        dur: '0.1s',
+        kind: 'file',
+        label: 'references/improve-existing.md',
+        tool: 'Read',
+      },
+      {
+        kind: 'agent',
+        label: 'Research T3 Code agent UI',
+        subagent: {
+          background: true,
+          elapsed: '4m 12s',
+          now: {
+            label: 'Codex app terminal toggle shortcut',
+            tool: 'WebSearch',
+          },
+          recent: [
+            {
+              kind: 'terminal',
+              label: 'Clone pingdotgg/t3code into scratchpad',
+              tool: 'Bash',
+            },
+            {
+              kind: 'file',
+              label: 'apps/web/src/components/chat/WorkLog.tsx',
+              tool: 'Read',
+            },
+            {
+              kind: 'file',
+              label: 'apps/web/src/components/chat/TimelineWorkGroupRows.tsx',
+              tool: 'Read',
+            },
+            {
+              kind: 'globe',
+              label: 'developers.openai.com/codex/app/features',
+              tool: 'WebFetch',
+            },
+          ],
+          tools: 38,
+          type: 'general-purpose',
+        },
+        tool: 'Agent',
+      },
+      {
+        dur: '34s',
+        kind: 'terminal',
+        label: 'Capture incumbent screenshots for tile 0',
+        tool: 'Bash',
+      },
+      {
+        elapsed: '18s',
+        kind: 'terminal',
+        label: 'Run impeccable anti-pattern detection on UI',
+        running: true,
+        tool: 'Bash',
+      },
     ],
     working: '6m 41s',
-    lead: `<p>Preflight passes. This is the "design exists, isn't good yet" branch, as you said. I'll run the T3 Code research in the background while I capture and critique the current UI.</p>`,
   },
 ]
 
 // Summary sentence for a run of tool calls ("Ran 6 commands, read 1 file and edited 2 files").
 function summarize(work) {
-  const n = { terminal: 0, file: 0, edit: 0, globe: 0 }
+  const n = { edit: 0, file: 0, globe: 0, terminal: 0 }
   for (const w of work) if (w.kind in n) n[w.kind]++
   const parts = []
-  if (n.terminal) parts.push(`ran ${n.terminal} command${n.terminal > 1 ? 's' : ''}`)
+  if (n.terminal) {
+    parts.push(`ran ${n.terminal} command${n.terminal > 1 ? 's' : ''}`)
+  }
   if (n.file) parts.push(`read ${n.file} file${n.file > 1 ? 's' : ''}`)
   if (n.edit) parts.push(`edited ${n.edit} file${n.edit > 1 ? 's' : ''}`)
   if (n.globe) parts.push(`fetched ${n.globe} page${n.globe > 1 ? 's' : ''}`)
-  const s = parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts.at(-1) : parts[0] || ''
+  const s =
+    parts.length > 1
+      ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`
+      : parts[0] || ''
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
-const iconFor = (w) => ({ terminal: 'terminal', file: 'file', edit: 'edit', agent: 'agent', globe: 'globe' })[w.kind]
+const iconFor = (w) =>
+  ({
+    agent: 'agent',
+    edit: 'edit',
+    file: 'file',
+    globe: 'globe',
+    terminal: 'terminal',
+  })[w.kind]
 
 // ---------- Shared shell (Session Rail, unchanged except a working dot on the active tab) ----------
 const tokens = `
@@ -191,7 +312,9 @@ const rail = (extra = '') => `<aside aria-label="Rex sessions">
   </nav>${extra}
 </aside>`
 
-const composer = (placeholder = 'Reply to Claude Code') => `<div class="composer">
+const composer = (
+  placeholder = 'Reply to Claude Code',
+) => `<div class="composer">
   <div class="to"><span>Send to</span><b>Session status check</b><span class="meta">rex-fw · Claude Code</span></div>
   <div class="field"><div class="ta">${placeholder}</div><button class="send">Send <kbd>Ctrl+Enter</kbd></button></div>
 </div>`
@@ -251,7 +374,10 @@ function aWork(work) {
   const flush = (open = false) => {
     if (!run.length) return
     const total = run.length
-    const head = total === 1 ? `${ico(iconFor(run[0]), 14)}<span class="trunc">${esc(run[0].label)}</span><span class="dur">${run[0].dur || ''}</span>` : `${ico('chevron', 12).replace('<svg', '<svg class="chev"')}<span>${summarize(run)}</span>${run.some((w) => w.fail) ? `<span style="color:var(--destructive)">· 1 failed</span>` : ''}`
+    const head =
+      total === 1
+        ? `${ico(iconFor(run[0]), 14)}<span class="trunc">${esc(run[0].label)}</span><span class="dur">${run[0].dur || ''}</span>`
+        : `${ico('chevron', 12).replace('<svg', '<svg class="chev"')}<span>${summarize(run)}</span>${run.some((w) => w.fail) ? `<span style="color:var(--destructive)">· 1 failed</span>` : ''}`
     out.push(`<div class="run" data-group ${open ? 'data-open' : ''}><button data-toggle>${head}</button>
       <div class="rows">${run.map((w) => `<div class="row${w.fail ? ' fail' : ''}">${ico(w.fail ? 'x' : iconFor(w), 13)}<span class="t">${w.tool}</span><span class="trunc">${esc(w.label)}</span><span class="d">${w.dur || ''}</span></div>`).join('')}</div></div>`)
     run = []
@@ -264,24 +390,36 @@ function aWork(work) {
         <div class="sub-now">${ico('globe', 13)}<span class="shine">Searching ${esc(s.now.label)}</span></div></div>`)
     } else if (w.running) {
       flush()
-      out.push(`<div class="run"><button>${ico('terminal', 14)}<span class="shine">${esc(w.label)}</span><span class="dur">${w.elapsed}</span></button></div>`)
-    } else run.push(w)
+      out.push(
+        `<div class="run"><button>${ico('terminal', 14)}<span class="shine">${esc(w.label)}</span><span class="dur">${w.elapsed}</span></button></div>`,
+      )
+    } else {
+      run.push(w)
+    }
   }
   flush()
   return out.join('')
 }
-const aTurns = turns.map((t, i) => `
+const aTurns = turns
+  .map(
+    (t, i) => `
   <div class="user">${t.skill ? `<span class="skill">/${t.skill}</span>` : ''}${t.image ? `<span class="att">${ico('image', 14)}${esc(t.image)}</span>` : ''}<div class="bubble">${esc(t.user)}</div>${t.user2 ? `<div class="bubble">${esc(t.user2)}</div>` : ''}</div>
   ${t.lead ? `<div class="agent md">${t.lead}</div>` : ''}
   ${i === 1 ? aWork(t.work).replace('class="run" data-group ', 'class="run" data-group data-open ') : aWork(t.work)}
   ${t.answer ? `<div class="agent md">${t.answer}</div>` : ''}
-  ${t.live ? `<div class="working"><span class="pulse"></span>Working for <span class="mono">${t.working}</span></div>` : ''}`).join('')
-const thread = page('Thread', aCss, `
+  ${t.live ? `<div class="working"><span class="pulse"></span>Working for <span class="mono">${t.working}</span></div>` : ''}`,
+  )
+  .join('')
+const thread = page(
+  'Thread',
+  aCss,
+  `
   <div class="head"><h1 class="trunc">Session status check</h1><div class="meta">rex-fw / silent-brook · Claude Code</div><span class="sp"></span>
     <span class="agents"><span class="pulse"></span>1 agent running</span>
     <button class="hdr-btn" title="Show terminal (Ctrl+J)">${ico('panelBottom', 15)}Terminal <kbd>Ctrl+J</kbd></button></div>
   <div class="view"><div class="fade"></div><div class="col anchor">${aTurns}</div></div>
-  ${composer()}`)
+  ${composer()}`,
+)
 
 // =====================================================================
 // B · Ledger: dense, left-aligned, time gutter. Each turn gets a one-line mono trace of its tool work,
@@ -324,19 +462,28 @@ const bCss = `
 const bTrace = (t, open) => {
   const counts = {}
   for (const w of t.work) counts[w.tool] = (counts[w.tool] || 0) + 1
-  const chips = Object.entries(counts).map(([k, v]) => `<span class="chip">${k.toLowerCase()} ${v}</span>`).join('')
+  const chips = Object.entries(counts)
+    .map(([k, v]) => `<span class="chip">${k.toLowerCase()} ${v}</span>`)
+    .join('')
   const failed = t.work.filter((w) => w.fail).length
   return `<div data-group ${open ? 'data-open' : ''}><div class="trace"><button data-toggle>${ico('chevron', 11)}${t.work.length} steps</button>${chips}${failed ? `<span class="chip bad">${failed} failed</span>` : ''}<span>${t.live ? 'running' : t.duration}</span></div>
   <div class="tbl">${t.work.map((w) => `<div class="tr${w.fail ? ' fail' : ''}${w.running || w.subagent ? ' live' : ''}"><span class="t">${w.tool}</span><span class="trunc">${esc(w.label)}${w.subagent ? ` <span class="meta">· ${w.subagent.tools} tools</span>` : ''}</span><span class="d">${w.dur || w.elapsed || w.subagent?.elapsed || ''}</span>${w.running || w.subagent ? '<span class="pulse"></span>' : w.fail ? ico('x', 13) : `<span style="color:var(--muted-fg)">${ico('check', 13)}</span>`}</div>`).join('')}</div></div>`
 }
-const bEntries = turns.map((t, i) => `
+const bEntries = turns
+  .map(
+    (t, i) => `
   <div class="entry"><div class="gut">${t.time}</div><div>
-    <div class="you"><span class="who">you${t.skill ? ' · /' + t.skill : ''}${t.image ? ' · 1 image' : ''}</span>${esc(t.user)}${t.user2 ? '<br>' + esc(t.user2) : ''}</div>
+    <div class="you"><span class="who">you${t.skill ? ` · /${t.skill}` : ''}${t.image ? ' · 1 image' : ''}</span>${esc(t.user)}${t.user2 ? `<br>${esc(t.user2)}` : ''}</div>
     ${t.lead ? `<div class="ans md">${t.lead}</div>` : ''}
     ${bTrace(t, i === 2)}
     ${t.answer ? `<div class="ans md">${t.answer}</div>` : ''}
-  </div></div>`).join('')
-const ledger = page('Ledger', bCss, `
+  </div></div>`,
+  )
+  .join('')
+const ledger = page(
+  'Ledger',
+  bCss,
+  `
   <div class="head"><h1 class="trunc">Session status check</h1><div class="meta">rex-fw / silent-brook · Claude Code</div><span class="sp"></span>
     <span class="state label"><span class="dot"></span>Working 6m 41s</span>
     <div class="seg" role="group" aria-label="Panels"><button aria-pressed="true">Conversation</button><button aria-pressed="true">${ico('panelRight', 14)}Terminal</button></div></div>
@@ -366,7 +513,8 @@ const ledger = page('Ledger', bCss, `
   * main
   o general-purpose  Browsing T3 Code...</pre></div>
   </div>
-  ${composer()}`)
+  ${composer()}`,
+)
 
 // =====================================================================
 // C · Turn cards: each turn is an object. The prompt heads the card; the work is a vertical step
@@ -415,22 +563,40 @@ const cStep = (w) => {
     const s = w.subagent
     return `<div class="st run"><span class="ic">${ico('agent', 11)}</span><span class="t">Agent</span><span class="trunc" style="color:var(--fg)">${esc(w.label)}</span><span class="d">${s.elapsed}</span></div>
     <div class="child"><div class="child-h"><span class="pulse"></span><b>${s.type}</b><span class="meta">background · ${s.tools} tools</span></div>
-    <div class="tail">${s.recent.slice(-3).map((r) => `<div class="st ok"><span class="ic">${ico(iconFor(r), 11)}</span><span class="trunc">${esc(r.label)}</span></div>`).join('')}
+    <div class="tail">${s.recent
+      .slice(-3)
+      .map(
+        (r) =>
+          `<div class="st ok"><span class="ic">${ico(iconFor(r), 11)}</span><span class="trunc">${esc(r.label)}</span></div>`,
+      )
+      .join('')}
     <div class="st run"><span class="ic">${ico('globe', 11)}</span><span class="trunc shine">Searching ${esc(s.now.label)}</span></div></div></div>`
   }
   return `<div class="st ${w.running ? 'run' : w.fail ? 'fail' : 'ok'}"><span class="ic">${ico(w.fail ? 'x' : iconFor(w), 11)}</span><span class="t">${w.tool}</span><span class="trunc${w.running ? ' shine' : ''}">${esc(w.label)}</span><span class="d">${w.dur || w.elapsed || ''}</span></div>`
 }
-const cards = turns.map((t, i) => {
-  const prompt = `<div class="prompt"><span class="you">YOU</span><div class="q">${esc(t.user)}${t.user2 ? `<small>${esc(t.user2)}</small>` : ''}${t.image ? `<small>${ico('image', 12)} ${esc(t.image)}</small>` : ''}${t.skill ? `<small>/${t.skill}</small>` : ''}</div><span class="meta">${t.time}</span></div>`
-  if (t.live) return `<div class="card">${prompt}<div class="body md" style="border-bottom:1px solid var(--border)">${t.lead}</div><div class="tl">${t.work.map(cStep).join('')}</div><div class="foot"><span class="pulse"></span>Working for <span class="mono">${t.working}</span><span class="sp"></span><span class="meta">${t.work.length} steps · 1 agent</span></div></div>`
-  return `<div class="card done${i === 0 ? ' folded' : ''}">${prompt}<div class="steps-line">${ico('chevron', 12)}${t.work.length} steps · ${summarize(t.work)}${t.work.some((w) => w.fail) ? ' · <span style="color:var(--destructive)">1 failed</span>' : ''}<span class="sp"></span><span class="meta">${t.duration}</span></div><div class="body md">${t.answer}</div></div>`
-}).join('')
-const turnCards = page('Turn Cards', cCss, `
+const cards = turns
+  .map((t, i) => {
+    const prompt = `<div class="prompt"><span class="you">YOU</span><div class="q">${esc(t.user)}${t.user2 ? `<small>${esc(t.user2)}</small>` : ''}${t.image ? `<small>${ico('image', 12)} ${esc(t.image)}</small>` : ''}${t.skill ? `<small>/${t.skill}</small>` : ''}</div><span class="meta">${t.time}</span></div>`
+    if (t.live) {
+      return `<div class="card">${prompt}<div class="body md" style="border-bottom:1px solid var(--border)">${t.lead}</div><div class="tl">${t.work.map(cStep).join('')}</div><div class="foot"><span class="pulse"></span>Working for <span class="mono">${t.working}</span><span class="sp"></span><span class="meta">${t.work.length} steps · 1 agent</span></div></div>`
+    }
+    return `<div class="card done${i === 0 ? ' folded' : ''}">${prompt}<div class="steps-line">${ico('chevron', 12)}${t.work.length} steps · ${summarize(t.work)}${t.work.some((w) => w.fail) ? ' · <span style="color:var(--destructive)">1 failed</span>' : ''}<span class="sp"></span><span class="meta">${t.duration}</span></div><div class="body md">${t.answer}</div></div>`
+  })
+  .join('')
+const turnCards = page(
+  'Turn Cards',
+  cCss,
+  `
   <div class="tabs-h"><h1 class="trunc">Session status check</h1><button aria-current="true">Conversation</button><button>${ico('terminal', 14)}Terminal</button><span class="meta">rex-fw / silent-brook · Claude Code</span></div>
   <div class="view"><div class="stack anchor">${cards}</div></div>
-  ${composer()}`)
+  ${composer()}`,
+)
 
-for (const [slug, html] of [['transcript-thread', thread], ['transcript-ledger', ledger], ['transcript-cards', turnCards]]) {
+for (const [slug, html] of [
+  ['transcript-thread', thread],
+  ['transcript-ledger', ledger],
+  ['transcript-cards', turnCards],
+]) {
   fs.writeFileSync(path.join(here, `${slug}.html`), html)
   console.log('wrote', slug)
 }

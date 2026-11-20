@@ -1,5 +1,24 @@
 [
-  {"op":"resize","id":"15413282-7e5d-49d6-b9df-26df429270a1","x":0,"y":40,"width":640,"height":400},
-  {"op":"move","id":"1016f18f-6cb6-45c6-909a-f113d3f130df","x":0,"y":490},
-  {"op":"resize","id":"6679cb62-85ed-4bc7-b1cb-577bb365786a","x":0,"y":560,"width":640,"height":400}
+  {
+    "height": 400,
+    "id": "15413282-7e5d-49d6-b9df-26df429270a1",
+    "op": "resize",
+    "width": 640,
+    "x": 0,
+    "y": 40
+  },
+  {
+    "id": "1016f18f-6cb6-45c6-909a-f113d3f130df",
+    "op": "move",
+    "x": 0,
+    "y": 490
+  },
+  {
+    "height": 400,
+    "id": "6679cb62-85ed-4bc7-b1cb-577bb365786a",
+    "op": "resize",
+    "width": 640,
+    "x": 0,
+    "y": 560
+  }
 ]

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "aliases": {
+    "components": "@/components",
+    "hooks": "@/hooks",
+    "lib": "@/components/lib",
+    "ui": "@/components/ui",
+    "utils": "@/components/ui/utils"
+  },
+  "iconLibrary": "lucide",
+  "menuAccent": "subtle",
+  "menuColor": "default",
+  "registries": {
+    "@alephic": "https://registry.alephic.ai/r/{name}.json",
+    "@better-auth-ui": "https://better-auth-ui.com/r/{style}/{name}.json"
+  },
+  "rsc": true,
+  "rtl": false,
+  "style": "radix-nova",
+  "tailwind": {
+    "baseColor": "neutral",
+    "config": "",
+    "css": "src/app/globals.css",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "tsx": true
+}

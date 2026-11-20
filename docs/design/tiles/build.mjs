@@ -12,17 +12,20 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 const fonts = fs.readFileSync(path.join(here, 'fonts.css'), 'utf8')
 
 const icons = {
-  monitor: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
+  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
   chevron: '<path d="m9 18 6-6-6-6"/>',
   down: '<path d="m6 9 6 6 6-6"/>',
-  plus: '<path d="M5 12h14M12 5v14"/>',
-  refresh: '<path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/>',
-  terminal: '<path d="m4 17 6-6-6-6M12 19h8"/>',
-  keyboard: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
   enter: '<path d="M20 4v7a4 4 0 0 1-4 4H4"/><path d="m9 10-5 5 5 5"/>',
+  keyboard:
+    '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
+  monitor:
+    '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
+  plus: '<path d="M5 12h14M12 5v14"/>',
+  refresh:
+    '<path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
-  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  terminal: '<path d="m4 17 6-6-6-6M12 19h8"/>',
 }
 const ico = (name, size = 16) =>
   `<svg aria-hidden="true" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${icons[name]}</svg>`
@@ -31,7 +34,6 @@ const ico = (name, size = 16) =>
 const panes = [
   {
     id: '4be2a1',
-    title: 'envoy: review loop',
     text: `# sample output, not a real session
 $ pnpm test --filter bridge
 
@@ -48,10 +50,10 @@ $ git status --short
  M public/client.js
  M server.ts
 $ `,
+    title: 'envoy: review loop',
   },
   {
     id: '9c07d3',
-    title: 'zsh · ~/dev/envoy',
     text: `# sample output, not a real session
 $ rex window ls
 ID        NAME      PANES
@@ -66,21 +68,53 @@ GET /api/blocks  200 118ms
 GET /api/screen  200  64ms
 GET /api/screen  200  59ms
 `,
+    title: 'zsh · ~/dev/envoy',
   },
 ]
-const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-const term = (p) => `<pre class="term" tabindex="0" aria-label="${p.title}">${esc(p.text)}<span class="cursor"></span></pre>`
+const esc = (s) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+const term = (p) =>
+  `<pre class="term" tabindex="0" aria-label="${p.title}">${esc(p.text)}<span class="cursor"></span></pre>`
 
 const hosts = [
-  { name: 'rex-spark', sessions: [
-    { name: 'AI MCP', tabs: 8 }, { name: 'AI-5490', tabs: 1 }, { name: 'Backup Harness Sessions', tabs: 1 },
-    { name: 'Canvas', tabs: 1 }, { name: 'Speech Acts', tabs: 2 },
-    { name: 'hidden-mesa', open: true, tabs: [
-      ['wiki', 1], ['cleanup', 1], ['PR data', 1], ['Escalation Tuning', 1], ['Slack send', 1], ['PR 3277', 1], ['3271 Slack gate', 1], ['envoy', 2],
-    ] },
-  ] },
-  { name: 'rex-mini', sessions: [{ name: 'Unsessioned', tabs: 4 }, { name: 'presentation-path-experiments', tabs: 1 }] },
-  { name: 'rex-mbp', sessions: [{ name: 'polished-forest', tabs: 8 }, { name: 'clayfuls', tabs: 1 }] },
+  {
+    name: 'rex-spark',
+    sessions: [
+      { name: 'AI MCP', tabs: 8 },
+      { name: 'AI-5490', tabs: 1 },
+      { name: 'Backup Harness Sessions', tabs: 1 },
+      { name: 'Canvas', tabs: 1 },
+      { name: 'Speech Acts', tabs: 2 },
+      {
+        name: 'hidden-mesa',
+        open: true,
+        tabs: [
+          ['wiki', 1],
+          ['cleanup', 1],
+          ['PR data', 1],
+          ['Escalation Tuning', 1],
+          ['Slack send', 1],
+          ['PR 3277', 1],
+          ['3271 Slack gate', 1],
+          ['envoy', 2],
+        ],
+      },
+    ],
+  },
+  {
+    name: 'rex-mini',
+    sessions: [
+      { name: 'Unsessioned', tabs: 4 },
+      { name: 'presentation-path-experiments', tabs: 1 },
+    ],
+  },
+  {
+    name: 'rex-mbp',
+    sessions: [
+      { name: 'polished-forest', tabs: 8 },
+      { name: 'clayfuls', tabs: 1 },
+    ],
+  },
   { name: 'rex-fw', sessions: [] },
 ]
 const mesa = hosts[0].sessions.find((s) => s.open).tabs
@@ -197,7 +231,17 @@ ${panes.map((p, i) => `<section class="pane${i === 0 ? ' on' : ''}" data-title="
     <div class="grp label"><span>rex-spark · hidden-mesa</span><span>8 tabs</span></div>
     ${mesa.map(([n, c]) => `<button class="row${n === 'envoy' ? ' on' : ''}">${ico('terminal')}<span class="trunc">${n}</span><span class="n">${c} ${c > 1 ? 'panes' : 'pane'}</span></button>`).join('')}
     <div class="grp label"><span>Other sessions</span><span>11</span></div>
-    ${[['rex-spark', 'AI MCP', 8], ['rex-spark', 'Speech Acts', 2], ['rex-mini', 'Unsessioned', 4], ['rex-mbp', 'polished-forest', 8]].map(([h, s, c]) => `<button class="row">${ico('monitor')}<span class="s">${h}</span><span class="trunc">${s}</span><span class="n">${c} tabs</span></button>`).join('')}
+    ${[
+      ['rex-spark', 'AI MCP', 8],
+      ['rex-spark', 'Speech Acts', 2],
+      ['rex-mini', 'Unsessioned', 4],
+      ['rex-mbp', 'polished-forest', 8],
+    ]
+      .map(
+        ([h, s, c]) =>
+          `<button class="row">${ico('monitor')}<span class="s">${h}</span><span class="trunc">${s}</span><span class="n">${c} tabs</span></button>`,
+      )
+      .join('')}
   </div>
 </div>
 <div class="tray" role="toolbar" aria-label="Rex">
@@ -217,7 +261,7 @@ ${panes.map((p, i) => `<section class="pane${i === 0 ? ' on' : ''}" data-title="
 // ---------------------------------------------------------------- B · Session Rail
 const rail = hosts
   .map((h) => {
-    const head = `<div class="host label"><span class="dot${h.sessions.length ? '' : ' off'}"></span><span>${h.name}</span><span class="n">${h.sessions.length ? h.sessions.length + ' sessions' : 'no sessions'}</span></div>`
+    const head = `<div class="host label"><span class="dot${h.sessions.length ? '' : ' off'}"></span><span>${h.name}</span><span class="n">${h.sessions.length ? `${h.sessions.length} sessions` : 'no sessions'}</span></div>`
     const rows = h.sessions
       .map((s) => {
         const open = Array.isArray(s.tabs)
@@ -358,7 +402,13 @@ body{--term-bg:#161515;--term-fg:#ededeb;display:flex;flex-direction:column}
   <span class="live label">Live</span>
 </div>
 <nav class="deck" aria-label="Tabs in hidden-mesa">
-${[...mesa].reverse().map(([n, c]) => `<button class="obj${n === 'envoy' ? ' on' : ''}">${face}<span class="t"><b class="trunc">${n}</b><small>${c} ${c > 1 ? 'panes' : 'pane'}</small></span></button>`).join('\n')}
+${[...mesa]
+  .reverse()
+  .map(
+    ([n, c]) =>
+      `<button class="obj${n === 'envoy' ? ' on' : ''}">${face}<span class="t"><b class="trunc">${n}</b><small>${c} ${c > 1 ? 'panes' : 'pane'}</small></span></button>`,
+  )
+  .join('\n')}
 </nav>
 <main class="work" aria-label="Terminal panes">
 ${panes.map((p, i) => `<section class="pane${i === 0 ? ' on' : ''}" data-title="${p.title}" data-id="${p.id}">${term(p)}<footer><span class="kind label">${ico('terminal', 12)}Terminal</span><span class="trunc">${p.title}</span><span class="yours label">Typing</span><span class="id">${p.id}</span></footer></section>`).join('\n')}
@@ -371,7 +421,11 @@ ${panes.map((p, i) => `<section class="pane${i === 0 ? ' on' : ''}" data-title="
 </div>`,
 )
 
-for (const [slug, html] of [['ink-stage', inkStage], ['session-rail', sessionRail], ['tab-deck', tabDeck]]) {
+for (const [slug, html] of [
+  ['ink-stage', inkStage],
+  ['session-rail', sessionRail],
+  ['tab-deck', tabDeck],
+]) {
   fs.writeFileSync(path.join(here, `${slug}.html`), html)
   console.log('wrote', `${slug}.html`, html.length)
 }
