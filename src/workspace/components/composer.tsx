@@ -32,6 +32,8 @@ export function Composer(props: {
   }
   // Hidden rather than unmounted while typing goes to the terminal, so the draft survives.
   readonly hidden: boolean
+  /** The agent's model, context size, branch and mode, as its own status line shows them. */
+  readonly status: string | undefined
   readonly target: PaneTarget | undefined
 }) {
   const [text, setText] = useState('')
@@ -149,6 +151,11 @@ export function Composer(props: {
         <b className="text-foreground truncate font-medium">
           {props.destination}
         </b>
+        {props.status && (
+          <span className="ml-auto shrink-0 font-mono text-[0.72rem]">
+            {props.status}
+          </span>
+        )}
       </p>
       <div className="border-input bg-card focus-within:border-ring focus-within:ring-ring relative mx-auto max-w-184 rounded-xl border focus-within:ring-1">
         {matches.length > 0 && (
@@ -240,8 +247,10 @@ export function Composer(props: {
               setMenuClosed(true)
             } else if (
               event.key === 'Enter' &&
-              (event.ctrlKey || event.metaKey)
+              !event.shiftKey &&
+              !event.nativeEvent.isComposing
             ) {
+              // Enter sends; Shift+Enter adds a line (and IME composition keeps its Enter).
               event.preventDefault()
               void send()
             }
@@ -293,7 +302,7 @@ export function Composer(props: {
           >
             <span className="max-md:hidden">Send</span>
             <kbd className="font-mono text-[0.7rem] opacity-80 max-md:hidden">
-              Ctrl+Enter
+              Enter
             </kbd>
             <ArrowUpIcon className="size-4.5 md:hidden" />
           </button>

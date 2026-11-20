@@ -44,6 +44,12 @@ const resultSchema = z.union([
         finished: z.record(z.string(), z.string()),
         items: z.array(itemSchema),
         since: z.string(),
+        status: z.object({
+          branch: z.string(),
+          context: z.number(),
+          mode: z.string(),
+          model: z.string(),
+        }),
         warnings: z.array(z.string()),
         working: z.boolean(),
       })
@@ -116,6 +122,7 @@ export async function readConversation(props: {
     now: new Date().toISOString(),
     selected: result.selected,
     since: result.parsed?.since ?? '',
+    status: result.parsed?.status,
     subagents: result.subagents,
     warnings: result.parsed?.warnings ?? [],
     working: result.parsed?.working ?? false,

@@ -613,3 +613,203 @@ test('Codex is working from task_started until task_complete, and its error even
     false,
   )
 })
+
+test('Claude thinking summaries show as notes; hidden thinking stays out', () => {
+  const { items } = parseTranscript(
+    jsonl([
+      {
+        message: { content: 'hi', role: 'user' },
+        parentUuid: null,
+        type: 'user',
+        uuid: 'a',
+      },
+      {
+        message: {
+          content: [
+            {
+              signature: 's',
+              thinking: 'Checking the parser first.',
+              type: 'thinking',
+            },
+            { signature: 's', thinking: '', type: 'thinking' },
+            { text: 'Done.', type: 'text' },
+          ],
+          role: 'assistant',
+        },
+        parentUuid: 'a',
+        type: 'assistant',
+        uuid: 'b',
+      },
+    ]),
+    'claude',
+  )
+  assert.deepEqual(
+    items.map((item) => [item.role, item.text]),
+    [
+      ['user', 'hi'],
+      ['summary', 'Checking the parser first.'],
+      ['assistant', 'Done.'],
+    ],
+  )
+})
+
+test('a message queued off a parallel tool result on a side branch still shows', () => {
+  const result = (uuid, parentUuid, id, timestamp) => ({
+    message: {
+      content: [{ content: 'ok', tool_use_id: id, type: 'tool_result' }],
+      role: 'user',
+    },
+    parentUuid,
+    timestamp,
+    type: 'user',
+    uuid,
+  })
+  const { items } = parseTranscript(
+    jsonl([
+      {
+        message: { content: 'go', role: 'user' },
+        parentUuid: null,
+        timestamp: '1',
+        type: 'user',
+        uuid: 'a',
+      },
+      {
+        message: {
+          content: [
+            { id: 't1', input: {}, name: 'Bash', type: 'tool_use' },
+            { id: 't2', input: {}, name: 'Bash', type: 'tool_use' },
+          ],
+          role: 'assistant',
+        },
+        parentUuid: 'a',
+        timestamp: '2',
+        type: 'assistant',
+        uuid: 'b',
+      },
+      result('r2', 'b', 't2', '3'),
+      result('r1', 'b', 't1', '4'),
+      {
+        attachment: {
+          humanTurn: true,
+          prompt: 'also this',
+          type: 'queued_command',
+        },
+        parentUuid: 'r2',
+        timestamp: '5',
+        type: 'attachment',
+        uuid: 'q',
+      },
+      {
+        message: { content: 'Done.', role: 'assistant' },
+        parentUuid: 'r1',
+        timestamp: '6',
+        type: 'assistant',
+        uuid: 'c',
+      },
+    ]),
+    'claude',
+  )
+  assert.ok(
+    items.some((item) => item.role === 'user' && item.text === 'also this'),
+  )
+})
+
+test('Claude history before a compaction stays visible', () => {
+  const { items } = parseTranscript(
+    jsonl([
+      {
+        message: { content: 'before', role: 'user' },
+        parentUuid: null,
+        type: 'user',
+        uuid: 'a',
+      },
+      {
+        message: { content: 'old reply', role: 'assistant' },
+        parentUuid: 'a',
+        type: 'assistant',
+        uuid: 'b',
+      },
+      {
+        logicalParentUuid: 'b',
+        parentUuid: null,
+        subtype: 'compact_boundary',
+        type: 'system',
+        uuid: 'c',
+      },
+      {
+        isCompactSummary: true,
+        message: { content: 'Summary: …', role: 'user' },
+        parentUuid: 'c',
+        type: 'user',
+        uuid: 'd',
+      },
+      {
+        message: { content: 'after', role: 'user' },
+        parentUuid: 'd',
+        type: 'user',
+        uuid: 'e',
+      },
+      { permissionMode: 'auto', type: 'permission-mode' },
+    ]),
+    'claude',
+  )
+  assert.deepEqual(
+    items.map((item) => [item.role, item.text]),
+    [
+      ['user', 'before'],
+      ['assistant', 'old reply'],
+      ['summary', 'Context compacted.'],
+      ['user', 'after'],
+    ],
+  )
+})
+
+test('messages a compaction kept, including a queued one, stay visible', () => {
+  const { items } = parseTranscript(
+    jsonl([
+      {
+        message: { content: 'old', role: 'user' },
+        parentUuid: null,
+        type: 'user',
+        uuid: 'a',
+      },
+      {
+        message: { content: 'kept reply', role: 'assistant' },
+        parentUuid: 'a',
+        type: 'assistant',
+        uuid: 'k1',
+      },
+      {
+        attachment: {
+          humanTurn: true,
+          prompt: 'queued while busy',
+          type: 'queued_command',
+        },
+        parentUuid: 'k1',
+        type: 'attachment',
+        uuid: 'k2',
+      },
+      {
+        compactMetadata: {
+          preservedMessages: { allUuids: ['k1', 'k2', 'gone'] },
+        },
+        logicalParentUuid: 'gone',
+        parentUuid: null,
+        subtype: 'compact_boundary',
+        type: 'system',
+        uuid: 'c',
+      },
+      {
+        message: { content: 'after', role: 'user' },
+        parentUuid: 'c',
+        type: 'user',
+        uuid: 'e',
+      },
+    ]),
+    'claude',
+  )
+  assert.deepEqual(
+    items.map((item) => item.text),
+    ['old', 'kept reply', 'queued while busy', 'Context compacted.', 'after'],
+  )
+})

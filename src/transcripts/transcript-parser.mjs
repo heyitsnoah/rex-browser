@@ -40,7 +40,22 @@ export function parseTranscript(text, agent) {
       while (leaf && !seen.has(leaf[idKey])) {
         seen.add(leaf[idKey])
         active.unshift(leaf)
-        leaf = index.get(leaf[parentKey])
+        // A Claude compaction starts a new chain. A boundary that kept recent messages lists them (they sit
+        // before it, partly on side branches) and the walk continues above the first; otherwise it points
+        // back with logicalParentUuid.
+        const kept = leaf.compactMetadata?.preservedMessages?.allUuids
+        if (Array.isArray(kept) && kept.length) {
+          for (const keptId of kept.toReversed()) {
+            const record = index.get(keptId)
+            if (record && !seen.has(keptId)) {
+              seen.add(keptId)
+              active.unshift(record)
+            }
+          }
+          leaf = index.get(index.get(kept[0])?.[parentKey])
+        } else {
+          leaf = index.get(leaf[parentKey] ?? leaf.logicalParentUuid)
+        }
       }
       // Results of parallel tool calls can sit on sibling branches; keep any whose call is on the active path.
       if (agent === 'claude') {
@@ -54,21 +69,35 @@ export function parseTranscript(text, agent) {
             if (p.type === 'tool_result') have.add(p.tool_use_id)
           }
         }
-        // Also keep queued human messages that branch off the active path (several queued in one turn share a parent).
         const strays = linked.filter(
           (r) =>
             !seen.has(r.uuid) &&
-            ((Array.isArray(r.message?.content) &&
-              r.message.content.some(
-                (p) =>
-                  p.type === 'tool_result' &&
-                  calls.has(p.tool_use_id) &&
-                  !have.has(p.tool_use_id),
-              )) ||
-              (r.attachment?.type === 'queued_command' &&
-                r.attachment.humanTurn &&
-                seen.has(r.parentUuid))),
+            Array.isArray(r.message?.content) &&
+            r.message.content.some(
+              (p) =>
+                p.type === 'tool_result' &&
+                calls.has(p.tool_use_id) &&
+                !have.has(p.tool_use_id),
+            ),
         )
+        for (const r of strays) seen.add(r.uuid)
+        // Also keep queued human messages that branch off the active path or off a result kept above
+        // (several queued in one turn share a parent, or chain off each other).
+        for (let added = true; added;) {
+          added = false
+          for (const r of linked) {
+            if (
+              !seen.has(r.uuid) &&
+              r.attachment?.type === 'queued_command' &&
+              r.attachment.humanTurn &&
+              seen.has(r.parentUuid)
+            ) {
+              seen.add(r.uuid)
+              strays.push(r)
+              added = true
+            }
+          }
+        }
         if (strays.length) {
           active = [...active, ...strays].sort((a, b) =>
             String(a.timestamp).localeCompare(String(b.timestamp)),
@@ -136,6 +165,9 @@ export function parseTranscript(text, agent) {
       if (['input_text', 'output_text', 'text'].includes(part.type)) {
         if (role === 'user') userText(part.text, partId)
         else add(role, part.text, '', partId)
+      } else if (part.type === 'thinking' && role === 'assistant') {
+        // Claude Code shows summarized thinking as progress lines ("· summary"); hidden thinking is empty.
+        add('summary', part.thinking?.trim(), '', partId)
       } else if (['tool_use', 'toolCall'].includes(part.type)) {
         add('tool', part.input ?? part.arguments, part.name, part.id || partId)
       } else if (part.type === 'tool_result') {
@@ -171,9 +203,32 @@ export function parseTranscript(text, agent) {
       }
     }
   }
+  // What Claude Code's status line shows that the transcript also records.
+  const status = {
+    branch: '',
+    context: 0,
+    // Written as its own unlinked record whenever the mode changes.
+    mode:
+      records.findLast((r) => r.type === 'permission-mode')?.permissionMode ||
+      '',
+    model: '',
+  }
   for (const [i, r] of active.entries()) {
     const id = r.uuid || r.id || String(i)
     time = r.timestamp || ''
+    if (r.gitBranch) status.branch = r.gitBranch
+    if (
+      r.type === 'assistant' &&
+      r.message?.usage &&
+      r.message.model !== '<synthetic>'
+    ) {
+      const u = r.message.usage
+      status.model = r.message.model || status.model
+      status.context =
+        (u.input_tokens || 0) +
+        (u.cache_creation_input_tokens || 0) +
+        (u.cache_read_input_tokens || 0)
+    }
     if (agent === 'codex') {
       const p = r.payload || {}
       // response_item is the canonical content; event_msg often repeats the same text.
@@ -217,11 +272,16 @@ export function parseTranscript(text, agent) {
       const prompt = r.attachment.prompt
       if (Array.isArray(prompt)) content('user', prompt, id)
       else userText(String(prompt || ''), id)
-    } else if (r.message && !r.isSidechain && !r.isMeta) {
+    } else if (
+      r.message &&
+      !r.isSidechain &&
+      !r.isMeta &&
+      !r.isCompactSummary
+    ) {
       const role = r.message.role || r.type
       if (['assistant', 'toolResult', 'user'].includes(role)) {
-        if (role === 'toolResult')
-          {add(
+        if (role === 'toolResult') {
+          add(
             'result',
             (r.message.content || [])
               .map((c) => c.text || `[${c.type}]`)
@@ -229,8 +289,10 @@ export function parseTranscript(text, agent) {
             '',
             id,
             r.message.isError === true,
-          )}
-        else {content(role, r.message.content, id)}
+          )
+        } else {
+          content(role, r.message.content, id)
+        }
       }
       // Pi records a failed reply as stopReason "error" with the provider's message.
       if (
@@ -318,6 +380,7 @@ export function parseTranscript(text, agent) {
     finished,
     items: items.slice(-500),
     since,
+    status,
     warnings: [
       ...new Set([
         ...warnings,

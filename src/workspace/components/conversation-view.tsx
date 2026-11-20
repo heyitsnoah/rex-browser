@@ -1,12 +1,13 @@
 'use client'
 
 import { FileTextIcon, ImageIcon } from 'lucide-react'
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 
 import type { AgentConversation } from '@/transcripts/transcript-access'
 import type { AgentPrompt } from '@/workspace/detect-prompt'
 
 import { AnswerCard } from '@/workspace/components/answer-card'
+import { ImagePreview } from '@/workspace/components/image-preview'
 import { LiveDuration } from '@/workspace/components/live-duration'
 import { MarkdownText } from '@/workspace/components/markdown-text'
 import { SubagentCard } from '@/workspace/components/subagent-card'
@@ -30,6 +31,7 @@ export function ConversationView(props: {
   readonly prompt: AgentPrompt | undefined
   readonly savedAt: number | undefined
 }) {
+  const [preview, setPreview] = useState<string>()
   const scroller = useRef<HTMLDivElement>(null)
   // Read by the scroll handler and the layout effect, not by render: whether the reader is at the bottom.
   const atBottom = useRef(true)
@@ -163,12 +165,14 @@ export function ConversationView(props: {
                   ))}
                   {block.attachments.map((attachment, index) =>
                     attachment.image ? (
-                      <a
+                      <button
+                        aria-label="Preview image"
                         className="border-border bg-subtle block max-w-[min(16rem,70%)] overflow-hidden rounded-xl border"
-                        href={`/api/image?id=${attachment.image}`}
                         key={index}
-                        rel="noopener"
-                        target="_blank"
+                        onClick={() =>
+                          setPreview(`/api/image?id=${attachment.image}`)
+                        }
+                        type="button"
                       >
                         {/* Served from the in-memory image cache; next/image can't optimize it. */}
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -179,7 +183,7 @@ export function ConversationView(props: {
                           loading="lazy"
                           src={`/api/image?id=${attachment.image}`}
                         />
-                      </a>
+                      </button>
                     ) : (
                       <span
                         className="border-border text-muted-foreground inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs"
@@ -250,6 +254,9 @@ export function ConversationView(props: {
           <p className="text-muted-foreground text-sm">Waiting for messages…</p>
         )}
       </div>
+      {preview && (
+        <ImagePreview onClose={() => setPreview(undefined)} src={preview} />
+      )}
     </div>
   )
 }

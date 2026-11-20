@@ -295,9 +295,37 @@ export function Workspace() {
                 ),
             }
           }}
+          status={agent?.status && statusLine(agent.status)}
           target={target}
         />
       </main>
     </div>
   )
+}
+
+const MODES: Record<string, string> = {
+  acceptEdits: 'accept edits',
+  auto: 'auto mode',
+  bypassPermissions: 'bypass permissions',
+  plan: 'plan mode',
+}
+
+function statusLine(status: {
+  branch: string
+  context: number
+  mode: string
+  model: string
+}) {
+  // claude-opus-5-5 → Opus 5.5
+  const model = /^claude-([a-z]+)-(\d+)-(\d+)/.exec(status.model)
+  return [
+    model
+      ? `${model[1].charAt(0).toUpperCase()}${model[1].slice(1)} ${model[2]}.${model[3]}`
+      : status.model,
+    status.context ? `${status.context.toLocaleString()} context` : '',
+    status.branch && `⎇ ${status.branch}`,
+    MODES[status.mode] ?? '',
+  ]
+    .filter(Boolean)
+    .join(' · ')
 }
