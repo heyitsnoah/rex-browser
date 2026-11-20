@@ -41,3 +41,19 @@ test('a subagent call breaks the run and keeps its result', () => {
   ])
   expect(blocks.map((block) => block.kind)).toEqual(['run', 'agent', 'run'])
 })
+
+test('answers to a question show as your message', () => {
+  const blocks = conversationBlocks([
+    item('tool', 'q', '{"questions":[]}', 'AskUserQuestion'),
+    item(
+      'result',
+      'r',
+      'Your questions have been answered: "Which one?"="1) this is \\"ugly\\" 2) links". You can now continue.',
+      'q',
+    ),
+  ])
+  const answer = blocks.at(-1)
+  expect(answer?.kind === 'you' && answer.messages).toEqual([
+    { command: '', text: '1) this is "ugly" 2) links' },
+  ])
+})

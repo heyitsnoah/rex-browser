@@ -43,19 +43,25 @@ export function ConversationView(props: {
     props.conversation.subagents.map((agent) => [agent.toolUseId, agent]),
   )
   // Claude writes a message sent mid-turn only when it picks it up; until then it shows as pending.
+  // An answer typed into an open question lands in that question's result instead.
   // Only your messages written after the send count, so repeating an earlier "yes" still shows.
   const pending = props.pending.filter((message) => {
     if (Date.now() - message.at > 10 * 60 * 1000) return false
     const newer = items.filter(
       (item) =>
-        (item.role === 'user' || item.role === 'attachment') &&
+        (item.role === 'user' ||
+          item.role === 'attachment' ||
+          item.role === 'result') &&
         Date.parse(item.time) - offsetMs >= message.at - 1000,
     )
     return !newer.some((item) =>
       message.text
-        ? item.role === 'user' &&
-          normalize(item.text).endsWith(normalize(message.text))
-        : true,
+        ? (item.role === 'user' &&
+            normalize(item.text).endsWith(normalize(message.text))) ||
+          // Typed while the agent was asking a question, it becomes the question's answer.
+          (item.role === 'result' &&
+            normalize(item.text).includes(normalize(message.text)))
+        : item.role !== 'result',
     )
   })
 

@@ -96,6 +96,19 @@ export function conversationBlocks(items: Item[]) {
         } else {
           appendCall(blocks, call)
         }
+        // Your answers to an AskUserQuestion read as your message, as the terminal shows them.
+        const answers =
+          item.name === 'AskUserQuestion' && result && !result.failed
+            ? questionAnswers(result.text)
+            : []
+        if (answers.length) {
+          blocks.push({
+            attachments: [],
+            id: `${item.id}:answer`,
+            kind: 'you',
+            messages: answers.map((text) => ({ command: '', text })),
+          })
+        }
         break
       }
     }
@@ -107,4 +120,11 @@ function appendCall(blocks: ConversationBlock[], call: ToolCall) {
   const last = blocks.at(-1)
   if (last?.kind === 'run') last.calls.push(call)
   else blocks.push({ calls: [call], id: call.id, kind: 'run' })
+}
+
+/** The answers in Claude Code's AskUserQuestion result: `…answered: "question"="answer", "q2"="a2". …`. */
+function questionAnswers(output: string) {
+  return [...output.matchAll(/"(?:[^"\\]|\\.)*"="((?:[^"\\]|\\.)*)"/g)].map(
+    (match) => match[1].replace(/\\"/g, '"'),
+  )
 }
