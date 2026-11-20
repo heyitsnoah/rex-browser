@@ -331,7 +331,7 @@ export function Composer(props: {
               shell
                 ? 'command'
                 : props.agentLabel
-                  ? `Reply to ${props.agentLabel}${props.agentLabel === 'Claude Code' || props.agentLabel === 'Codex' ? ' · / for skills' : ''}`
+                  ? `Reply to ${props.agentLabel} · / for skills`
                   : 'Text or command'
             }
             ref={box}

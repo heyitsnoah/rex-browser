@@ -17,6 +17,23 @@ const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
 const modelSchema = z.enum(['haiku', 'opus', 'sonnet'])
 const effortSchema = z.enum(EFFORTS)
 const modeSchema = z.enum(['acceptEdits', 'auto', 'default', 'plan'])
+// What the read-only status line shows for each agent's mode: Claude's permission modes and Pi's
+// thinking levels.
+const MODE_NAMES = new Map(
+  Object.entries({
+    acceptEdits: 'accept edits',
+    auto: 'auto mode',
+    bypassPermissions: 'bypass permissions',
+    high: 'high thinking',
+    low: 'low thinking',
+    max: 'max thinking',
+    medium: 'medium thinking',
+    minimal: 'minimal thinking',
+    off: 'thinking off',
+    plan: 'plan mode',
+    xhigh: 'xhigh thinking',
+  }),
+)
 const MODES = {
   acceptEdits: 'accept edits',
   auto: 'auto mode',
@@ -60,9 +77,7 @@ export function AgentStatus(props: {
       modelName(props.status.model),
       context,
       branch,
-      new Map(
-        Object.entries({ ...MODES, bypassPermissions: 'bypass permissions' }),
-      ).get(props.status.mode) ?? '',
+      MODE_NAMES.get(props.status.mode) ?? '',
     ]
       .filter(Boolean)
       .join(' · ')
@@ -170,9 +185,9 @@ export function AgentStatus(props: {
   )
 }
 
-/** claude-opus-5-5 → Opus 5.5 */
+/** claude-opus-5-5 or anthropic/claude-haiku-4.5 → Opus 5.5 / Haiku 4.5 */
 function modelName(id: string) {
-  const match = /^claude-([a-z]+)-(\d+)-(\d+)/.exec(id)
+  const match = /^(?:[a-z0-9-]+\/)?claude-([a-z]+)-(\d+)[.-](\d+)/.exec(id)
   return match
     ? `${match[1].charAt(0).toUpperCase()}${match[1].slice(1)} ${match[2]}.${match[3]}`
     : id

@@ -154,13 +154,10 @@ async function programSource() {
   const dir = path.join(process.cwd(), 'src/transcripts')
   const reader = (
     await readFile(path.join(dir, 'transcript-reader.mjs'), 'utf8')
-  ).replace(
-    'export async function readTranscripts',
-    'async function readTranscripts',
-  )
+  ).replace(/^export /gm, '')
   const parser = (
     await readFile(path.join(dir, 'transcript-parser.mjs'), 'utf8')
-  ).replace('export function parseTranscript', 'function parseTranscript')
+  ).replace(/^export /gm, '')
   const main = await readFile(path.join(dir, 'transcript-program.mjs'), 'utf8')
   return [reader, parser, main].join('\n')
 }
