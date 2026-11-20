@@ -7,8 +7,9 @@ function item(
   id: string,
   text: string,
   name = '',
+  failed = false,
 ) {
-  return { id, image: undefined, name, role, text, time: '' }
+  return { failed, id, image: undefined, name, role, text, time: '' }
 }
 
 test('pairs each call with its result and folds consecutive calls into one run', () => {
@@ -17,7 +18,7 @@ test('pairs each call with its result and folds consecutive calls into one run',
     item('tool', 'c1', '{"command":"ls"}', 'Bash'),
     item('tool', 'c2', '{"file_path":"a.ts"}', 'Read'),
     item('result', 'r2', 'contents', 'c2'),
-    item('result', 'r1', 'Error: no such file', 'c1'),
+    item('result', 'r1', 'Exit code 1\nls: no such file', 'c1', true),
     item('assistant', 'a', 'done'),
   ])
   expect(blocks.map((block) => block.kind)).toEqual(['you', 'run', 'said'])
@@ -26,7 +27,7 @@ test('pairs each call with its result and folds consecutive calls into one run',
     run?.kind === 'run' &&
       run.calls.map((call) => [call.name, call.output, call.failed]),
   ).toEqual([
-    ['Bash', 'Error: no such file', true],
+    ['Bash', 'Exit code 1\nls: no such file', true],
     ['Read', 'contents', false],
   ])
 })

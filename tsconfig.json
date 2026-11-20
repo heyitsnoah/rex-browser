@@ -15,7 +15,7 @@
     "noUnusedLocals": false, // prefer using https://typescript-eslint.io/rules/no-unused-vars/
     "noUnusedParameters": false, // prefer using https://typescript-eslint.io/rules/no-unused-vars/
     "paths": { "@/*": ["./src/*"] },
-    "plugins": [{ "name": "next" }, { "name": "workflow" }],
+    "plugins": [{ "name": "next" }],
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true,

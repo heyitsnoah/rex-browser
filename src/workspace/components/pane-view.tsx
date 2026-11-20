@@ -56,6 +56,7 @@ export function PaneView(props: {
   return (
     <section
       className={`bg-card flex h-full min-h-0 flex-col overflow-hidden ${props.solo ? '' : `rounded-lg border ${props.active ? 'outline-primary outline-2 outline-offset-2' : ''}`}`}
+      data-active-pane={props.active ? '' : undefined}
       onClickCapture={props.onSelect}
     >
       {!props.solo && (
@@ -80,28 +81,37 @@ export function PaneView(props: {
               onOpenTerminal={props.onOpenTerminal}
               pending={props.pending}
               prompt={prompt}
+              // Restored from the browser's saved copy and not refreshed yet in this page load.
+              savedAt={
+                conversation.dataUpdatedAt < performance.timeOrigin
+                  ? conversation.dataUpdatedAt
+                  : undefined
+              }
             />
           </div>
           {props.drawer && (
             <>
               <div
                 className="relative z-10 -mb-1.5 h-1.5 shrink-0 cursor-ns-resize touch-none max-md:-mb-3.5 max-md:h-3.5"
-                onPointerDown={(event) => {
+                onPointerDown={(event) =>
+                  event.currentTarget.setPointerCapture(event.pointerId)
+                }
+                // Pointer capture ends on up or cancel, so a cancelled drag can't keep resizing.
+                onPointerMove={(event) => {
                   const handle = event.currentTarget
                   const pane = handle.parentElement?.getBoundingClientRect()
+                  if (!pane || !handle.hasPointerCapture(event.pointerId)) {
+                    return
+                  }
                   const rem = parseFloat(
                     getComputedStyle(document.documentElement).fontSize,
                   )
-                  if (!pane) return
-                  handle.setPointerCapture(event.pointerId)
-                  handle.onpointermove = (move) =>
-                    props.onDrawerResize(
-                      Math.min(
-                        (pane.height * 0.75) / rem,
-                        Math.max(9, (pane.bottom - move.clientY) / rem),
-                      ),
-                    )
-                  handle.onpointerup = () => (handle.onpointermove = null)
+                  props.onDrawerResize(
+                    Math.min(
+                      (pane.height * 0.75) / rem,
+                      Math.max(9, (pane.bottom - event.clientY) / rem),
+                    ),
+                  )
                 }}
                 title="Drag to resize"
               />

@@ -1,6 +1,13 @@
 // Runs on the machine that owns the agent; reads only approved transcript roots.
 import { execFileSync } from 'node:child_process'
-import { open, readdir, readFile, realpath, stat } from 'node:fs/promises'
+import {
+  open,
+  readdir,
+  readFile,
+  readlink,
+  realpath,
+  stat,
+} from 'node:fs/promises'
 import { homedir } from 'node:os'
 import path from 'node:path'
 // Exported as one function so the same code runs locally, over SSH, or in a hidden Rex terminal (see transcript-access.ts).
@@ -71,7 +78,15 @@ export async function readTranscripts(request) {
         .map((l) => l.slice(1))
     }
   } catch {
-    // Optional metadata: matching falls back to the project directory.
+    // lsof is often missing on Linux; /proc/<pid>/fd lists the same open files.
+    for (const pid of (request.pids || []).filter(
+      (p) => Number.isSafeInteger(p) && p > 0,
+    )) {
+      for (const fd of await readdir(`/proc/${pid}/fd`).catch(() => [])) {
+        const target = await readlink(`/proc/${pid}/fd/${fd}`).catch(() => '')
+        if (target.endsWith('.jsonl')) openPaths.push(target)
+      }
+    }
   }
   // When the agent process started (seconds ago, via ps; works on Linux and macOS).
   let started = 0
@@ -126,6 +141,8 @@ export async function readTranscripts(request) {
       (exactId && path.basename(file) === `${exactId}.jsonl`) ||
       openPaths.includes(file)
     if (!exact && meta.cwd !== request.cwd) continue
+    // Codex writes a separate rollout for each subagent thread, in the same folders with the same cwd.
+    if (!exact && (meta.parent_thread_id || meta.source?.subagent)) continue
     const info = await stat(file)
     const created = info.birthtimeMs > 0 ? info.birthtimeMs : info.mtimeMs
     candidates.push({
@@ -146,7 +163,7 @@ export async function readTranscripts(request) {
     : []
   const chosen = request.id
     ? candidates.find((c) => c.id === request.id)
-    : exact.length === 1
+    : exact.length > 0
       ? exact[0]
       : since[0]
   let text
@@ -182,9 +199,24 @@ export async function readTranscripts(request) {
   async function subagents(file) {
     const dir = `${file.replace(/\.jsonl$/, '') + path.sep}subagents`
     const out = []
-    for (const name of (await readdir(dir).catch(() => []))
-      .filter((n) => n.endsWith('.meta.json'))
-      .slice(-20)) {
+    // The 20 most recently written: readdir order isn't chronological.
+    const metas = (await readdir(dir).catch(() => [])).filter((n) =>
+      n.endsWith('.meta.json'),
+    )
+    const written = await Promise.all(
+      metas.map(async (n) => [
+        n,
+        (
+          await stat(
+            path.join(dir, n.replace(/\.meta\.json$/, '.jsonl')),
+          ).catch(() => ({ mtimeMs: 0 }))
+        ).mtimeMs,
+      ]),
+    )
+    for (const name of written
+      .sort((a, b) => a[1] - b[1])
+      .slice(-20)
+      .map(([n]) => n)) {
       try {
         const meta = JSON.parse(await readFile(path.join(dir, name), 'utf8'))
         const log = path.join(dir, name.replace(/\.meta\.json$/, '.jsonl'))

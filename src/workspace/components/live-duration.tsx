@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 
-/** Elapsed time since `since`, ticking each second. `offsetMs` corrects for the server's clock. */
 export function formatDuration(ms: number) {
   const seconds = Math.max(0, Math.round(ms / 1000))
   if (seconds < 60) return `${seconds}s`
@@ -13,6 +12,7 @@ export function formatDuration(ms: number) {
   return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`
 }
 
+/** Elapsed time since `since`, ticking each second. `offsetMs` corrects for the server's clock. */
 export function LiveDuration(props: {
   readonly offsetMs: number
   readonly since: string

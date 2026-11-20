@@ -37,10 +37,12 @@ export function TerminalView(props: {
   return (
     <pre
       aria-label={props.label}
-      className="h-full min-h-0 overflow-auto px-3.5 py-3 font-mono text-[0.8rem] leading-normal whitespace-pre outline-offset-[-2px]"
+      className="h-full min-h-0 overflow-auto px-3.5 py-3 font-mono text-[0.8rem] leading-normal whitespace-pre -outline-offset-2"
       onFocus={props.onFocus}
       onKeyDown={(event) => {
         if (!props.typing || event.metaKey) return
+        // Ctrl+V (and Ctrl+Shift+V) is the browser's paste on Linux and Windows; let onPaste send it.
+        if (event.ctrlKey && event.key.toLowerCase() === 'v') return
         const data =
           event.ctrlKey && event.key.length === 1
             ? String.fromCharCode(event.key.toUpperCase().charCodeAt(0) & 31)

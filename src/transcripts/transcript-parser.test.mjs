@@ -148,7 +148,7 @@ test('an incomplete appended line waits until newline; malformed complete lines 
   ])
   const result = parseTranscript(`${good}not json\n{"type":`, 'codex')
   assert.equal(result.items.length, 1)
-  assert.equal(result.warnings.length, 2)
+  assert.deepEqual(result.warnings, ['Skipped a malformed record.'])
 })
 test('hostile transcript text remains text, never markup', () => {
   const { items } = parseTranscript(
@@ -471,10 +471,145 @@ test('a failed Pi reply shows its error', () => {
     ],
   )
 })
-test('a mid-turn message written after newer records does not hide them',()=>{
- // Shape captured 2026-11-20: the queued_command attachment is the last record in the file, parented at the
- // point it was sent, while the assistant kept working on the main chain.
- const rows=[{message:{content:'go',role:'user'},parentUuid:null,timestamp:'1',type:'user',uuid:'u'},{message:{content:'step one',role:'assistant'},parentUuid:'u',timestamp:'2',type:'assistant',uuid:'a1'},{message:{content:'step two',role:'assistant'},parentUuid:'a1',timestamp:'4',type:'assistant',uuid:'a2'},{attachment:{humanTurn:true,prompt:'how do i see the agent?',type:'queued_command'},parentUuid:'a1',timestamp:'3',type:'attachment',uuid:'q'}];
- const {items}=parseTranscript(jsonl(rows),'claude');
- assert.deepEqual(items.map(i=>i.text),['go','step one','how do i see the agent?','step two']);
-});
+test('a mid-turn message written after newer records does not hide them', () => {
+  // Shape captured 2026-11-20: the queued_command attachment is the last record in the file, parented at the
+  // point it was sent, while the assistant kept working on the main chain.
+  const rows = [
+    {
+      message: { content: 'go', role: 'user' },
+      parentUuid: null,
+      timestamp: '1',
+      type: 'user',
+      uuid: 'u',
+    },
+    {
+      message: { content: 'step one', role: 'assistant' },
+      parentUuid: 'u',
+      timestamp: '2',
+      type: 'assistant',
+      uuid: 'a1',
+    },
+    {
+      message: { content: 'step two', role: 'assistant' },
+      parentUuid: 'a1',
+      timestamp: '4',
+      type: 'assistant',
+      uuid: 'a2',
+    },
+    {
+      attachment: {
+        humanTurn: true,
+        prompt: 'how do i see the agent?',
+        type: 'queued_command',
+      },
+      parentUuid: 'a1',
+      timestamp: '3',
+      type: 'attachment',
+      uuid: 'q',
+    },
+  ]
+  const { items } = parseTranscript(jsonl(rows), 'claude')
+  assert.deepEqual(
+    items.map((i) => i.text),
+    ['go', 'step one', 'how do i see the agent?', 'step two'],
+  )
+})
+test('Esc interrupting Claude ends the turn', () => {
+  // Captured shape: an Esc interrupt writes this user record and no system:turn_duration.
+  const rows = [
+    {
+      message: { content: 'go', role: 'user' },
+      parentUuid: null,
+      timestamp: '1',
+      type: 'user',
+      uuid: 'a',
+    },
+    {
+      message: { content: 'working on it', role: 'assistant' },
+      parentUuid: 'a',
+      timestamp: '2',
+      type: 'assistant',
+      uuid: 'b',
+    },
+    {
+      message: {
+        content: [{ text: '[Request interrupted by user]', type: 'text' }],
+        role: 'user',
+      },
+      parentUuid: 'b',
+      timestamp: '3',
+      type: 'user',
+      uuid: 'c',
+    },
+  ]
+  assert.equal(parseTranscript(jsonl(rows), 'claude').working, false)
+})
+test('a Claude tool result flagged is_error is failed; one starting with "Error" but not flagged is not', () => {
+  const rows = [
+    {
+      message: {
+        content: [
+          { id: 't1', input: {}, name: 'Bash', type: 'tool_use' },
+          { id: 't2', input: {}, name: 'Bash', type: 'tool_use' },
+        ],
+        role: 'assistant',
+      },
+      parentUuid: null,
+      type: 'assistant',
+      uuid: 'a',
+    },
+    {
+      message: {
+        content: [
+          {
+            content: 'Exit code 1',
+            is_error: true,
+            tool_use_id: 't1',
+            type: 'tool_result',
+          },
+          {
+            content: 'error: Run `ai login` first (expected output)',
+            tool_use_id: 't2',
+            type: 'tool_result',
+          },
+        ],
+        role: 'user',
+      },
+      parentUuid: 'a',
+      type: 'user',
+      uuid: 'b',
+    },
+  ]
+  const results = parseTranscript(jsonl(rows), 'claude').items.filter(
+    (i) => i.role === 'result',
+  )
+  assert.deepEqual(
+    results.map((r) => r.failed),
+    [true, false],
+  )
+})
+test('Codex is working from task_started until task_complete, and its error events show', () => {
+  const started = [
+    { payload: { type: 'task_started' }, type: 'event_msg' },
+    {
+      payload: { message: 'stream disconnected\ndetails', type: 'error' },
+      type: 'event_msg',
+    },
+  ]
+  const busy = parseTranscript(jsonl(started), 'codex')
+  assert.equal(busy.working, true)
+  assert.deepEqual(
+    busy.items.map((i) => [i.role, i.text]),
+    [['error', 'stream disconnected']],
+  )
+  assert.equal(
+    parseTranscript(
+      jsonl([
+        ...started,
+        { payload: { type: 'task_complete' }, type: 'event_msg' },
+      ]),
+      'codex',
+    ).working,
+    false,
+  )
+})

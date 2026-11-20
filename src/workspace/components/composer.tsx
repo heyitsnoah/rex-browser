@@ -15,6 +15,8 @@ import { useSlashCommands } from '@/workspace/workspace-queries'
 
 interface Attachment {
   error: string | undefined
+  // Uploaded to this computer; the path only exists there.
+  host: string
   id: number
   name: string
   path: string | undefined
@@ -28,6 +30,8 @@ export function Composer(props: {
     failed: () => void
     sent: () => void
   }
+  // Hidden rather than unmounted while typing goes to the terminal, so the draft survives.
+  readonly hidden: boolean
   readonly target: PaneTarget | undefined
 }) {
   const [text, setText] = useState('')
@@ -52,7 +56,8 @@ export function Composer(props: {
     (attachment) => !attachment.path && !attachment.error,
   )
   const ready = attachments.filter(
-    (attachment) => attachment.path !== undefined,
+    (attachment) =>
+      attachment.path !== undefined && attachment.host === props.target?.host,
   )
   const canSend =
     props.target !== undefined &&
@@ -70,7 +75,13 @@ export function Composer(props: {
     const id = Date.now() + Math.random()
     setAttachments((list) => [
       ...list,
-      { error: undefined, id, name: file.name, path: undefined },
+      {
+        error: undefined,
+        host: target.host,
+        id,
+        name: file.name,
+        path: undefined,
+      },
     ])
     const form = new FormData()
     form.set('file', file)
@@ -98,7 +109,7 @@ export function Composer(props: {
     const message = text.trim() ? text : ''
     // Clear at once; the conversation shows the message as pending until the transcript has it.
     setText('')
-    setAttachments([])
+    setAttachments((list) => list.filter((item) => !ready.includes(item)))
     const pending = props.onPending({
       files: ready.map((attachment) => attachment.name),
       text: message,
@@ -114,14 +125,15 @@ export function Composer(props: {
       }
       if (message) {
         await pasteToPaneAction({ ...target, text: message })
-        // Sent in the same write, TUIs treat the Enter as part of the paste and don't submit.
         await new Promise((resolve) => setTimeout(resolve, 120))
-        await writeToPaneAction({ ...target, data: '\r' })
       }
+      // Sent in the same write as a paste, TUIs treat the Enter as part of it and don't submit.
+      await writeToPaneAction({ ...target, data: '\r' })
       pending.sent()
     } catch (error) {
       pending.failed()
       setText((current) => current || message)
+      setAttachments((list) => [...ready, ...list])
       toast.error(
         `Send failed: ${error instanceof Error ? error.message : 'unknown error'}`,
       )
@@ -129,7 +141,9 @@ export function Composer(props: {
   }
 
   return (
-    <div className="border-t px-6 pt-3 pb-3.5 max-md:border-t-0 max-md:px-2.5 max-md:pt-2 max-md:pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+    <div
+      className={`border-t px-6 pt-3 pb-3.5 max-md:border-t-0 max-md:px-2.5 max-md:pt-2 max-md:pb-[calc(0.5rem+env(safe-area-inset-bottom))] ${props.hidden ? 'hidden' : ''}`}
+    >
       <p className="text-muted-foreground mx-auto mb-2 flex max-w-184 items-center gap-2 text-[0.8rem] max-md:hidden">
         {props.target ? 'Send to' : 'No pane selected'}{' '}
         <b className="text-foreground truncate font-medium">

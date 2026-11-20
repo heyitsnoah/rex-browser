@@ -3,8 +3,9 @@
 import { useQuery } from '@tanstack/react-query'
 
 import type { RexHost } from '@/rex/rex-hosts'
+import type { listSlashCommands } from '@/skills/skill-access'
 import type { Conversation } from '@/transcripts/transcript-access'
-import type { Tab } from '@/workspace/workspace-listing'
+import type { listSessions, Tab } from '@/workspace/workspace-listing'
 
 export interface PaneTarget {
   block: string
@@ -45,7 +46,7 @@ export function useSessions(host: string, enabled: boolean) {
   return useQuery({
     enabled,
     queryFn: () =>
-      getJson<{ label: string; session_id: string }[]>('sessions', { host }),
+      getJson<Awaited<ReturnType<typeof listSessions>>>('sessions', { host }),
     queryKey: ['sessions', host],
   })
 }
@@ -76,7 +77,7 @@ export function useSlashCommands(
   return useQuery({
     enabled: target !== undefined && enabled,
     queryFn: () =>
-      getJson<{ description: string; name: string }[]>('skills', {
+      getJson<Awaited<ReturnType<typeof listSlashCommands>>>('skills', {
         ...(target ?? { block: '', host: '', session: '' }),
       }),
     queryKey: ['skills', target?.host, target?.block],

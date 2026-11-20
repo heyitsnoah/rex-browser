@@ -73,7 +73,7 @@ export function conversationBlocks(items: Item[]) {
         // Results without a matching call (Pi) still show, as their own step.
         if (!paired.has(item)) {
           appendCall(blocks, {
-            failed: isFailure(item.text),
+            failed: item.failed,
             id: item.id,
             input: '',
             name: 'Output',
@@ -85,7 +85,7 @@ export function conversationBlocks(items: Item[]) {
         const result = results.get(item.id)
         if (result) paired.add(result)
         const call = {
-          failed: result ? isFailure(result.text) : false,
+          failed: result?.failed ?? false,
           id: item.id,
           input: item.text,
           name: item.name,
@@ -107,8 +107,4 @@ function appendCall(blocks: ConversationBlock[], call: ToolCall) {
   const last = blocks.at(-1)
   if (last?.kind === 'run') last.calls.push(call)
   else blocks.push({ calls: [call], id: call.id, kind: 'run' })
-}
-
-function isFailure(output: string) {
-  return /^(error|<tool_use_error>)/i.test(output.trim())
 }

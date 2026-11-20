@@ -41,7 +41,7 @@ export async function listSlashCommands(props: {
     .parse(
       await runRemoteProgram({
         host: props.host,
-        request: Buffer.from(JSON.stringify({ agent, cwd })).toString('base64'),
+        request: { agent, cwd },
         session: props.session,
         source,
       }),

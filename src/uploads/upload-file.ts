@@ -12,11 +12,11 @@ export const UPLOAD_LIMIT = 25 * 1024 * 1024
 
 // Runs in a hidden terminal: raw mode (no echo, no line limit), reads base64 until '.', writes the file, prints its path.
 const RECEIVER = `import {mkdirSync,writeFileSync} from 'node:fs';import {homedir} from 'node:os';import {randomUUID} from 'node:crypto';import {gzipSync} from 'node:zlib';import path from 'node:path';
-const name=process.argv.at(-1);let buf='';
+const name=process.argv.at(-1);const chunks=[];
 process.stdin.setRawMode(true);process.stdin.resume();process.stdout.write('\\nREXREADY\\n');
-process.stdin.on('data',d=>{buf+=d.toString('latin1');const end=buf.indexOf('.');if(end<0)return;
+process.stdin.on('data',d=>{const end=d.indexOf(46);if(end<0){chunks.push(d);return;}chunks.push(d.subarray(0,end));
  const dir=path.join(homedir(),'.local/state/rex-browser/uploads',randomUUID());mkdirSync(dir,{recursive:true,mode:0o700});
- const file=path.join(dir,name);writeFileSync(file,Buffer.from(buf.slice(0,end),'base64'),{mode:0o600});
+ const file=path.join(dir,name);writeFileSync(file,Buffer.from(Buffer.concat(chunks).toString('latin1'),'base64'),{mode:0o600});
  process.stdout.write('\\nREXB64:'+gzipSync(JSON.stringify({path:file})).toString('base64')+':REXEND\\n');process.exit(0);});`
 
 /** Writes the file on the computer that runs the pane and returns its path there. */

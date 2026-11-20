@@ -233,7 +233,12 @@ export function Workspace() {
                 onInput: (data) => input(block, data),
                 onOpenTerminal: () =>
                   !drawers.has(block) && toggleDrawer(block),
-                onSelect: () => setActiveBlock(block),
+                onSelect: () => {
+                  // A new target always starts in Compose (DESIGN.md, Input mode).
+                  if (block === active) return
+                  setActiveBlock(block)
+                  setTyping(false)
+                },
                 pending: pending.get(block) ?? [],
                 transcript: transcripts.get(block),
                 typing,
@@ -250,50 +255,48 @@ export function Workspace() {
           )}
         </div>
         {/* Typing in the terminal sends every key there, so the message box steps aside. */}
-        {!(typing && target && (!agent || drawer)) && (
-          <Composer
-            agentLabel={agentLabel}
-            destination={
-              target
-                ? [
-                    hostLabel,
-                    agentLabel ??
-                      panes.find((pane) => pane.id === active)?.title,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')
-                : ''
+        <Composer
+          agentLabel={agentLabel}
+          destination={
+            target
+              ? [
+                  hostLabel,
+                  agentLabel ?? panes.find((pane) => pane.id === active)?.title,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')
+              : ''
+          }
+          hidden={typing && target !== undefined && (!agent || drawer)}
+          onPending={(message) => {
+            const block = active ?? ''
+            const entry = {
+              at: Date.now(),
+              failed: false,
+              sent: false,
+              ...message,
             }
-            onPending={(message) => {
-              const block = active ?? ''
-              const entry = {
-                at: Date.now(),
-                failed: false,
-                sent: false,
-                ...message,
-              }
-              updatePending(block, (list) => [
-                ...list.filter((item) => Date.now() - item.at < 10 * 60 * 1000),
-                entry,
-              ])
-              return {
-                failed: () =>
-                  updatePending(block, (list) =>
-                    list.map((item) =>
-                      item.at === entry.at ? { ...item, failed: true } : item,
-                    ),
+            updatePending(block, (list) => [
+              ...list.filter((item) => Date.now() - item.at < 10 * 60 * 1000),
+              entry,
+            ])
+            return {
+              failed: () =>
+                updatePending(block, (list) =>
+                  list.map((item) =>
+                    item.at === entry.at ? { ...item, failed: true } : item,
                   ),
-                sent: () =>
-                  updatePending(block, (list) =>
-                    list.map((item) =>
-                      item.at === entry.at ? { ...item, sent: true } : item,
-                    ),
+                ),
+              sent: () =>
+                updatePending(block, (list) =>
+                  list.map((item) =>
+                    item.at === entry.at ? { ...item, sent: true } : item,
                   ),
-              }
-            }}
-            target={target}
-          />
-        )}
+                ),
+            }
+          }}
+          target={target}
+        />
       </main>
     </div>
   )

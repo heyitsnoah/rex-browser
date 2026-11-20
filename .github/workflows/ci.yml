@@ -5,7 +5,7 @@ name: CI
 # would run twice. Open a PR, or use workflow_dispatch.
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
   workflow_dispatch:
 
@@ -36,3 +36,6 @@ jobs:
 
       - name: TypeScript
         run: pnpm tsc --noEmit
+
+      - name: Tests
+        run: pnpm test -- --run

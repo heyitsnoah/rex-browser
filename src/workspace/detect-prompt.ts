@@ -26,6 +26,11 @@ export function detectPrompt(screen: string) {
     const match = /^\s*([❯›>])?\s*(\d{1,2})[.)]\s+(.+)$/.exec(line)
     const last = options.at(-1)
     if (match) {
+      // A new list starting at 1 replaces anything collected above it: only the menu counts.
+      if (match[2] === '1') {
+        options.length = 0
+        first = index
+      }
       if (first < 0) first = index
       options.push({
         current: Boolean(match[1]),

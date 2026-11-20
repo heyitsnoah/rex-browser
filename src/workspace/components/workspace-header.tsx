@@ -39,14 +39,14 @@ export function WorkspaceHeader(props: {
         ) : (
           <span className="bg-primary size-1.5 rounded-full" />
         )}
-        <span className="max-md:hidden">{props.error ? '' : 'Live'}</span>
+        <span>{props.error ? '' : 'Live'}</span>
       </span>
       {props.agentsRunning > 0 && (
         <button
           className="text-primary hover:bg-muted inline-flex h-8 items-center gap-1.5 rounded-lg px-2 font-mono text-xs whitespace-nowrap"
           onClick={() =>
             document
-              .querySelector('[data-agent-running]')
+              .querySelector('[data-active-pane] [data-agent-running]')
               ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
           }
           title="Show the running agent"

@@ -1,5 +1,6 @@
 // Turns raw agent JSONL into conversation items for the read-only view.
-// Items: {id, role, name, text, time}. Roles: user, assistant, tool, result, attachment, summary.
+// Items: {id, role, name, text, time, failed}. Roles: user, assistant, tool, result, attachment,
+// summary, error. `failed` marks a tool result that reported an error.
 // Also reports whether the agent looks mid-turn (`working`, `since`) and which background
 // subagents have finished (`finished`: tool_use id -> status).
 // Context the agent injects as user messages (Claude reminders and command output; Codex AGENTS.md and environment).
@@ -7,20 +8,11 @@ const BOOKKEEPING =
   /^(<(system-reminder|local-command-stdout|local-command-stderr|local-command-caveat|environment_context|user_instructions|INSTRUCTIONS|turn_aborted|user_shell_command)>|# AGENTS\.md instructions)/
 
 // "<command-message>x</command-message><command-name>/x</command-name><command-args>…</command-args>"
-function commandText(text) {
-  const name = text.match(/<command-name>([^<]*)<\/command-name>/)?.[1]
-  if (!name) return null
-  const args =
-    text.match(/<command-args>([\s\S]*?)<\/command-args>/)?.[1]?.trim() || ''
-  return { args, name: name.trim() }
-}
-
-// First line of a provider error, plus the readable message when the rest is JSON ("…(401): {"error":{"message":"…"}}").
 export function parseTranscript(text, agent) {
   const warnings = []
   const records = []
   const lines = text.split('\n')
-  if (lines.at(-1)) warnings.push('Waiting for an incomplete final record.')
+  // The last line is still being written until it ends with a newline; it's read on the next poll.
   lines.pop()
   for (const line of lines) {
     if (!line.trim()) continue
@@ -87,9 +79,10 @@ export function parseTranscript(text, agent) {
   }
   const items = []
   let time = ''
-  function add(role, value, name = '', id = '') {
+  function add(role, value, name = '', id = '', failed = false) {
     if (value === undefined || value === null || value === '') return
     items.push({
+      failed,
       id: id || String(items.length),
       name,
       role,
@@ -146,16 +139,13 @@ export function parseTranscript(text, agent) {
       } else if (['tool_use', 'toolCall'].includes(part.type)) {
         add('tool', part.input ?? part.arguments, part.name, part.id || partId)
       } else if (part.type === 'tool_result') {
-        add(
-          'result',
+        const output =
           typeof part.content === 'string'
             ? part.content
             : (part.content || [])
                 .map((c) => c.text || `[${c.type}]`)
-                .join('\n'),
-          part.tool_use_id,
-          partId,
-        )
+                .join('\n')
+        add('result', output, part.tool_use_id, partId, part.is_error === true)
       } else if (['image', 'input_image'].includes(part.type)) {
         add('attachment', 'Image', '', partId)
         // Inline image data (Claude: source.base64; Codex: data: URL). The server swaps it for a cache key.
@@ -195,7 +185,14 @@ export function parseTranscript(text, agent) {
         } else if (
           ['custom_tool_call_output', 'function_call_output'].includes(p.type)
         ) {
-          add('result', p.output, p.call_id, id)
+          // Codex records no error flag; its failures start with "error" (shell) or the tool's error tag.
+          add(
+            'result',
+            p.output,
+            p.call_id,
+            id,
+            /^(error|<tool_use_error>)/i.test(String(p.output ?? '').trim()),
+          )
         }
       } else if (r.type === 'compacted') {
         add('summary', p.message || 'Earlier context compacted.', '', id)
@@ -223,7 +220,17 @@ export function parseTranscript(text, agent) {
     } else if (r.message && !r.isSidechain && !r.isMeta) {
       const role = r.message.role || r.type
       if (['assistant', 'toolResult', 'user'].includes(role)) {
-        content(role === 'toolResult' ? 'result' : role, r.message.content, id)
+        if (role === 'toolResult')
+          {add(
+            'result',
+            (r.message.content || [])
+              .map((c) => c.text || `[${c.type}]`)
+              .join('\n'),
+            '',
+            id,
+            r.message.isError === true,
+          )}
+        else {content(role, r.message.content, id)}
       }
       // Pi records a failed reply as stopReason "error" with the provider's message.
       if (
@@ -265,9 +272,19 @@ export function parseTranscript(text, agent) {
             String(r.attachment.prompt),
           )),
     )
+    // A turn ends with system:turn_duration, or with "[Request interrupted by user]" when Esc stops a reply
+    // (that interrupt writes no turn_duration).
+    const interrupted = (r) =>
+      r?.type === 'user' &&
+      /^\[Request interrupted by user/.test(
+        typeof r.message?.content === 'string'
+          ? r.message.content
+          : (r.message?.content?.find?.((p) => p.type === 'text')?.text ?? ''),
+      )
     working =
       Boolean(last) &&
-      !(last.type === 'system' && last.subtype === 'turn_duration')
+      !(last.type === 'system' && last.subtype === 'turn_duration') &&
+      !interrupted(last)
     for (const r of records) {
       const note =
         r.type === 'queue-operation'
@@ -313,6 +330,15 @@ export function parseTranscript(text, agent) {
   }
 }
 
+function commandText(text) {
+  const name = text.match(/<command-name>([^<]*)<\/command-name>/)?.[1]
+  if (!name) return null
+  const args =
+    text.match(/<command-args>([\s\S]*?)<\/command-args>/)?.[1]?.trim() || ''
+  return { args, name: name.trim() }
+}
+
+// First line of a provider error, plus the readable message when the rest is JSON ("…(401): {"error":{"message":"…"}}").
 function errorText(value) {
   const text = String(value)
   const head = text.split('\n')[0].replace(/[\s:{]+$/, '')

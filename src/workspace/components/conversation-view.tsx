@@ -28,6 +28,7 @@ export function ConversationView(props: {
   readonly onOpenTerminal: () => void
   readonly pending: PendingMessage[]
   readonly prompt: AgentPrompt | undefined
+  readonly savedAt: number | undefined
 }) {
   const scroller = useRef<HTMLDivElement>(null)
   // Read by the scroll handler and the layout effect, not by render: whether the reader is at the bottom.
@@ -39,15 +40,22 @@ export function ConversationView(props: {
   const subagents = new Map(
     props.conversation.subagents.map((agent) => [agent.toolUseId, agent]),
   )
-  const seen = items
-    .filter((item) => item.role === 'user')
-    .map((item) => normalize(item.text))
   // Claude writes a message sent mid-turn only when it picks it up; until then it shows as pending.
-  const pending = props.pending.filter(
-    (message) =>
-      !message.text ||
-      !seen.some((text) => text.endsWith(normalize(message.text))),
-  )
+  // Only your messages written after the send count, so repeating an earlier "yes" still shows.
+  const pending = props.pending.filter((message) => {
+    if (Date.now() - message.at > 10 * 60 * 1000) return false
+    const newer = items.filter(
+      (item) =>
+        (item.role === 'user' || item.role === 'attachment') &&
+        Date.parse(item.time) - offsetMs >= message.at - 1000,
+    )
+    return !newer.some((item) =>
+      message.text
+        ? item.role === 'user' &&
+          normalize(item.text).endsWith(normalize(message.text))
+        : true,
+    )
+  })
 
   // Keeps the view pinned to the newest message after every render, unless the reader scrolled up.
   useLayoutEffect(() => {
@@ -66,17 +74,22 @@ export function ConversationView(props: {
       }}
       ref={scroller}
     >
+      {props.savedAt !== undefined && (
+        <p className="bg-subtle text-muted-foreground sticky top-0 z-10 border-b px-4 py-1.5 text-center text-[0.8rem]">
+          Saved copy from{' '}
+          {new Date(props.savedAt).toLocaleTimeString([], {
+            hour: 'numeric',
+            minute: '2-digit',
+          })}{' '}
+          · updating…
+        </p>
+      )}
       <div className="mx-auto max-w-184 px-6 pt-7 pb-5 text-[0.9rem] leading-relaxed max-md:px-4 max-md:pt-4">
-        {props.conversation.warnings
-          .filter((warning) => !warning.startsWith('Waiting for an incomplete'))
-          .map((warning) => (
-            <p
-              className="text-muted-foreground mb-4 text-[0.8rem]"
-              key={warning}
-            >
-              {warning}
-            </p>
-          ))}
+        {props.conversation.warnings.map((warning) => (
+          <p className="text-muted-foreground mb-4 text-[0.8rem]" key={warning}>
+            {warning}
+          </p>
+        ))}
         {!props.conversation.selected && (
           <div className="mb-4 space-y-2">
             <p className="text-muted-foreground text-sm">

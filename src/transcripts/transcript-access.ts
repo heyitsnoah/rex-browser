@@ -12,6 +12,7 @@ const imageSchema = z.object({
   mime: z.string(),
 })
 const itemSchema = z.object({
+  failed: z.boolean(),
   id: z.string(),
   image: z.union([z.string(), imageSchema]).optional(),
   name: z.string(),
@@ -87,15 +88,13 @@ export async function readConversation(props: {
 }) {
   const { agent, cwd, pids } = await readAgentProcess(props)
   if (!agent) return { agent: null }
-  const request = Buffer.from(
-    JSON.stringify({
-      agent,
-      cwd,
-      id: props.transcript,
-      known: [...images.keys()],
-      pids,
-    }),
-  ).toString('base64')
+  const request = {
+    agent,
+    cwd,
+    id: props.transcript,
+    known: [...images.keys()],
+    pids,
+  }
   // One read per pane at a time; polls that arrive meanwhile share it.
   const key = [props.host, props.block, props.transcript ?? ''].join('|')
   let pending = inflight.get(key)
@@ -159,7 +158,7 @@ async function programSource() {
 
 async function runProgram(props: {
   host: string
-  request: string
+  request: unknown
   session: string
 }) {
   return resultSchema.parse(

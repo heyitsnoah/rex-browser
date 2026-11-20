@@ -11,19 +11,26 @@ export function jsonRoute<T extends z.ZodType>(
   handler: (params: z.output<T>) => Promise<unknown>,
 ) {
   return async function GET(request: NextRequest) {
-    try {
+    const params = schema.safeParse(
+      Object.fromEntries(request.nextUrl.searchParams),
+    )
+    if (!params.success) {
       return Response.json(
-        await handler(
-          schema.parse(Object.fromEntries(request.nextUrl.searchParams)),
-        ),
-        { headers: { 'Cache-Control': 'no-store' } },
+        { error: `Invalid request: ${z.prettifyError(params.error)}` },
+        { status: 400 },
       )
+    }
+    try {
+      return Response.json(await handler(params.data), {
+        headers: { 'Cache-Control': 'no-store' },
+      })
     } catch (error) {
       return Response.json(
         {
           error:
+            // A schema failing here is Rex or Tailscale output changing shape, not a bad request.
             error instanceof z.ZodError
-              ? `Invalid request: ${z.prettifyError(error)}`
+              ? `Unexpected output: ${z.prettifyError(error)}`
               : error instanceof Error
                 ? error.message
                 : 'Request failed',

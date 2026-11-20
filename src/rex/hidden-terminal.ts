@@ -50,12 +50,14 @@ export async function runHidden(props: {
   try {
     const deadline = Date.now() + (props.timeoutMs ?? 20_000)
     let input = props.input
+    let lastScreen = ''
     for (let wait = 150; ; wait = Math.min(wait * 1.5, 800)) {
       const text = await readScreen({
         block,
         host: props.host,
         session: props.session,
       })
+      lastScreen = text
       if (text.includes(':REXEND')) return decodeFramed(text)
       if (input !== undefined && text.includes('REXREADY')) {
         for (let i = 0; i < input.length; i += WRITE_CHUNK) {
@@ -73,7 +75,9 @@ export async function runHidden(props: {
         input = undefined
       }
       if (Date.now() > deadline) {
-        throw new Error('The reader timed out on that computer.')
+        throw new Error(
+          `The reader timed out on that computer. Last output: ${lastScreen.trim().slice(-500) || '(none)'}`,
+        )
       }
       await new Promise((resolve) => setTimeout(resolve, wait))
     }

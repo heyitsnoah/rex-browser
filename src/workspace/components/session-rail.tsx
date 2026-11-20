@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useState } from 'react'
+import { toast } from 'sonner'
 
 import type { RexHost } from '@/rex/rex-hosts'
 
@@ -181,7 +182,7 @@ function SessionRow(props: {
     (tab) => !props.filter || matches(tab.label) || matches(props.label),
   )
   if (props.filter && !matches(props.label) && !shownTabs?.length) return null
-  const expanded = open || selected || props.filter !== ''
+  const expanded = open || props.filter !== ''
   return (
     <div>
       <button
@@ -241,6 +242,11 @@ function SessionRow(props: {
                       session: props.session,
                     })
                     .then(() => setNaming(false))
+                    .catch((error: unknown) =>
+                      toast.error(
+                        `New tab failed: ${error instanceof Error ? error.message : 'unknown error'}`,
+                      ),
+                    )
                 }
               }}
             >

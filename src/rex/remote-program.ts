@@ -4,33 +4,28 @@ import { decodeFramed, runHidden } from '@/rex/hidden-terminal'
 import { readConnection } from '@/rex/rex-connections'
 
 /**
- * Runs a Node ES module on the computer `host` with `request` as its last
- * argument and returns its framed result (see `decodeFramed`): locally, over
+ * Runs a Node ES module on the computer `host` with `request` (JSON, base64-encoded
+ * so it's safe in any shell) as its last argument and returns its framed result (see `decodeFramed`): locally, over
  * SSH, or in a hidden Rex terminal when `.rex-transcripts.json` has no entry.
  */
 export async function runRemoteProgram(props: {
   host: string
-  request: string
+  request: unknown
   session: string
   source: string
 }) {
+  const request = Buffer.from(JSON.stringify(props.request)).toString('base64')
   const connection = await readConnection(props.host)
   if (!connection) {
     return runHidden({
-      command: [
-        'node',
-        '--input-type=module',
-        '-e',
-        props.source,
-        props.request,
-      ],
+      command: ['node', '--input-type=module', '-e', props.source, request],
       host: props.host,
       session: props.session,
     })
   }
   const [command, args] =
     'local' in connection
-      ? [process.execPath, ['--input-type=module', '-', props.request]]
+      ? [process.execPath, ['--input-type=module', '-', request]]
       : [
           'ssh',
           [
@@ -41,7 +36,7 @@ export async function runRemoteProgram(props: {
             '-o',
             'ConnectTimeout=5',
             connection.ssh,
-            `node --input-type=module - ${props.request}`,
+            `node --input-type=module - ${request}`,
           ],
         ]
   const output = await new Promise<string>((resolve, reject) => {

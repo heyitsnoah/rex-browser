@@ -45,6 +45,28 @@ test('joins a wrapped question and option descriptions', () => {
   ])
 })
 
-test('ignores a numbered list that is not a menu', () => {
-  expect(detectPrompt('Steps:\n  1. Build\n  2. Ship\n❯ ')).toBeUndefined()
+test('a numbered list above a permission menu is not part of the menu', () => {
+  const screen = `● Here's the plan:
+  1. Build the app
+  2. Ship it
+
+● Bash(pnpm build)
+
+ Bash command
+   pnpm build
+   Build the app
+
+ Do you want to proceed?
+ ❯ 1. Yes
+   2. Yes, and don't ask again for pnpm build commands
+   3. No, and tell Claude what to do differently (esc)
+
+ Esc to cancel`
+  const prompt = detectPrompt(screen)
+  expect(prompt?.question).toBe('Do you want to proceed?')
+  expect(prompt?.options.map((option) => option.label)).toEqual([
+    'Yes',
+    "Yes, and don't ask again for pnpm build commands",
+    'No, and tell Claude what to do differently (esc)',
+  ])
 })
