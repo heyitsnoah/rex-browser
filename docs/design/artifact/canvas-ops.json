@@ -1,0 +1,21 @@
+[
+  {"op":"add","kind":"text","x":0,"y":-150,"size":"xl","text":"Rex transcript view: three directions"},
+  {"op":"add","kind":"text","x":0,"y":-70,"size":"m","text":"Same rail, header, composer and Alephic Product palette in all three; only the transcript, the Terminal switch and subagents differ. Real turns from this session. Open a tile for full size; the sun icon toggles dark."},
+  {"op":"add","ref":"zero","kind":"text","x":0,"y":450,"size":"l","text":"0 · Today (conversation, then terminal)"},
+  {"op":"add","ref":"a","kind":"tile","artifact":"641b1d50-eef8-4bc6-8f02-251bf361b0c3","x":720,"y":40},
+  {"op":"resize","id":"a","x":720,"y":40,"width":640,"height":420},
+  {"op":"add","ref":"a-name","kind":"text","x":720,"y":490,"size":"l","text":"A · Thread"},
+  {"op":"add","ref":"a-wins","kind":"note","x":720,"y":550,"fill":"green","text":"Wins when: you mostly read what the agent said. Tool runs collapse to one quiet line, the subagent is a live row where it was launched, and Terminal is a drawer (Ctrl+J), like T3 Code, Codex and Claude desktop."},
+  {"op":"add","ref":"a-cost","kind":"note","x":970,"y":550,"fill":"yellow","text":"Cost: least information at a glance. Seeing what ran means a click, and on a wide screen the 736px column leaves empty margins."},
+  {"op":"add","ref":"b","kind":"tile","artifact":"a33d0497-47a7-4b34-b4c0-422bb5ae6285","x":1440,"y":40},
+  {"op":"resize","id":"b","x":1440,"y":40,"width":640,"height":420},
+  {"op":"add","ref":"b-name","kind":"text","x":1440,"y":490,"size":"l","text":"B · Ledger"},
+  {"op":"add","ref":"b-wins","kind":"note","x":1440,"y":550,"fill":"green","text":"Wins when: you supervise. Times, per-turn tool counts and failures stay visible, running subagents sit in a strip that never scrolls away, and the terminal stays open beside the conversation."},
+  {"op":"add","ref":"b-cost","kind":"note","x":1690,"y":550,"fill":"yellow","text":"Cost: busiest of the three; the split halves the reading width, and the chips read like a dashboard."},
+  {"op":"add","ref":"c","kind":"tile","artifact":"584c63b8-45e8-427b-8055-26700d6cc6d1","x":2160,"y":40},
+  {"op":"resize","id":"c","x":2160,"y":40,"width":640,"height":420},
+  {"op":"add","ref":"c-name","kind":"text","x":2160,"y":490,"size":"l","text":"C · Turn Cards"},
+  {"op":"add","ref":"c-wins","kind":"note","x":2160,"y":550,"fill":"green","text":"Wins when: you come back to a long session. Each turn is one object (prompt, work timeline, answer), old turns fold to a line, and a subagent nests as a child card under the step that launched it."},
+  {"op":"add","ref":"c-cost","kind":"note","x":2410,"y":550,"fill":"yellow","text":"Cost: most chrome per turn; cards and shadows cost height, and Conversation/Terminal tabs keep the swap model instead of showing both."},
+  {"op":"add","ref":"pick","kind":"note","x":2880,"y":40,"fill":"blue","text":"My pick: A · Thread. Your complaint was that the transcript reads like a debug log; A is the quietest fix and matches the agent apps you already use. I'd borrow C's nested subagent steps into A's live row."}
+]

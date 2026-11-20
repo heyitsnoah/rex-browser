@@ -16,6 +16,8 @@ colors:
   tray: '#231f20'
   tray-foreground: '#f4f4f2'
   selected: '#e4f1e5'
+  note-soft: '#e1f3e3'
+  subtle: '#f3f5f3'
 typography:
   title: { fontFamily: 'Geist, system-ui, sans-serif', fontSize: '1.125rem', fontWeight: 500, letterSpacing: '-0.01em' }
   body: { fontFamily: 'Geist, system-ui, sans-serif', fontSize: '0.9375rem', fontWeight: 400, lineHeight: 1.5 }
@@ -94,7 +96,21 @@ Flat. Borders separate; nothing casts a shadow. Selection is a Forest outline, n
 - **Pane.** Bordered card with a 34px header (title, Mono short id). The targeted pane has a 2px Forest outline at 2px offset.
 - **Composer.** "Send to" plus the pane title and id, a Mono field, one Forest Send button with its key hint. Feedback sits on the same line, right aligned; errors use `destructive` and keep the draft.
 
+### Conversation (agent panes)
+
+Direction A · Thread, chosen 2026-11-20 over Ledger and Turn Cards (`docs/design/DECISIONS.md`). Applies to panes running Claude Code, Codex or Pi with transcript access.
+
+- One centered column, 736px max, 24px gutters; on a single-pane tab the pane frame and pane header disappear and the conversation sits on the surface. Tiled tabs keep frames.
+- Yours: right-aligned bubble, max 80% wide, `note-soft` fill (light #e1f3e3, dark #1f3323), radius 16/16/4/16. Slash commands show as a Mono chip above it; images as a bordered "Image" chip. No "You" label.
+- The agent's: no bubble, no label; Markdown at 14.5px/1.65. Code blocks on `subtle` with a border; inline code on `muted`.
+- Tool work: each run of consecutive calls is one 26px muted line, "Ran 6 commands, read 2 files and edited 1 file", with a chevron. Open, it lists one 24px row per call (icon, Mono tool name, description); a row opens to Input and Output on `muted`, 280px max. A single call is just its row. Failures say "N failed" in `destructive`; the row isn't restyled.
+- Subagents: a bordered card (radius 10) at the point of launch: pulse while running, Forest check when done, destructive X when failed; description, Mono type and "background", elapsed and tool count on the right; latest four steps nested under a hairline, the live one shimmering. Running cards stay open; done cards fold to one line.
+- Live state: "Working for 2m 05s" with a pulse at the end of the thread until the turn ends; the header shows "N agents running" once, never in two places.
+- Terminal: header button "Terminal Ctrl+J" (pressed state on `muted`) opens a drawer under the conversation, 280px default, 140px to 75% of the pane, drag the top edge. Read only / Direct typing appears only while a terminal is on screen. The composer placeholder names the agent ("Reply to Claude Code").
+
 ### Motion
+
+Agent panes add two loops, both off under reduced motion: the 1.6s opacity pulse on working dots, and a 2.4s text shimmer on the live step.
 
 - Stance: crisp. Motion confirms, it never decorates.
 - `--ease-out: cubic-bezier(0.23, 1, 0.32, 1)`; 150ms on hover background color; press is `scale(0.97)`.
