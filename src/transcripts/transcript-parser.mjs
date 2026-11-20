@@ -143,7 +143,7 @@ export function parseTranscript(text, agent) {
   function userText(value, id) {
     const claudeInput = /^<bash-input>([\s\S]*)<\/bash-input>$/.exec(value)
     if (claudeInput) {
-      shellCommand = claudeInput[1]
+      shellCommand = unescapeTagText(claudeInput[1])
       return
     }
     const claudeOutput =
@@ -153,7 +153,9 @@ export function parseTranscript(text, agent) {
     if (claudeOutput && shellCommand !== undefined) {
       shellRun(
         shellCommand,
-        [claudeOutput[1], claudeOutput[2]].filter(Boolean).join('\n'),
+        unescapeTagText(
+          [claudeOutput[1], claudeOutput[2]].filter(Boolean).join('\n'),
+        ),
         id,
       )
       shellCommand = undefined
@@ -259,6 +261,7 @@ export function parseTranscript(text, agent) {
   const status = {
     branch: '',
     context: 0,
+    effort: '',
     // Written as its own unlinked record whenever the mode changes.
     mode:
       records.findLast((r) => r.type === 'permission-mode')?.permissionMode ||
@@ -276,6 +279,7 @@ export function parseTranscript(text, agent) {
     ) {
       const u = r.message.usage
       status.model = r.message.model || status.model
+      status.effort = r.effort || status.effort
       status.context =
         (u.input_tokens || 0) +
         (u.cache_creation_input_tokens || 0) +
@@ -461,4 +465,9 @@ function errorText(value) {
   return detail && !head.includes(detail)
     ? `${head}: ${detail.replace(/\\"/g, '"')}`
     : head
+}
+
+// Claude Code escapes &, < and > inside its <bash-input> and <bash-stdout> tags.
+function unescapeTagText(text) {
+  return text.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
 }

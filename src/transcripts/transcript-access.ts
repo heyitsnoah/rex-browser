@@ -47,6 +47,7 @@ const resultSchema = z.union([
         status: z.object({
           branch: z.string(),
           context: z.number(),
+          effort: z.string(),
           mode: z.string(),
           model: z.string(),
         }),
