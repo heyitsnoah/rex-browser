@@ -1,20 +1,10 @@
 'use server'
 
-import { readFile } from 'node:fs/promises'
-import path from 'node:path'
-import { z } from 'zod'
-
 import { readScreen } from '@/rex/hidden-terminal'
-import { runRemoteProgram } from '@/rex/remote-program'
 import { requireActionAccess } from '@/rex/rex-access'
 import { rex } from '@/rex/rex-cli'
 import { requireHost } from '@/rex/rex-hosts'
 import { detectPrompt } from '@/workspace/detect-prompt'
-
-const defaultsSchema = z.object({
-  model: z.unknown(),
-  modelSettings: z.unknown(),
-})
 
 // The status line Claude Code shows for each mode.
 const MODE_LABELS = {
@@ -24,26 +14,18 @@ const MODE_LABELS = {
   plan: 'plan mode on',
 }
 
-// Changes on one computer run one at a time: each reads Claude's saved defaults, types its command
-// and puts the defaults back, so two overlapping changes could restore each other's values.
-const changesByHost = new Map<string, Promise<unknown>>()
+// Effort levels in the order ←/→ moves through them in Claude Code's /model picker.
+const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
 
 /**
- * Changes a Claude Code pane's model, effort or mode for that session only. /model and /effort also
- * save themselves as the computer's default, so the previous default is put back afterwards.
+ * Changes a Claude Code pane's model, effort or mode for that session only. Model and effort go
+ * through Claude Code's /model picker with "s" (use this session only), so its saved default stays.
  */
 export const setClaudeSettingAction = requireActionAccess(
   // Next.js hides a thrown error's message in production, so the reason comes back as data.
   async (props: Parameters<typeof changeClaudeSetting>[0]) => {
-    const change = (changesByHost.get(props.host) ?? Promise.resolve()).then(
-      () => changeClaudeSetting(props),
-    )
-    changesByHost.set(
-      props.host,
-      change.catch(() => undefined),
-    )
     try {
-      await change
+      await changeClaudeSetting(props)
       return { error: undefined }
     } catch (error) {
       return { error: error instanceof Error ? error.message : 'unknown error' }
@@ -56,9 +38,12 @@ async function changeClaudeSetting(props: {
   host: string
   session: string
   setting:
-    | { kind: 'effort'; value: 'high' | 'low' | 'max' | 'medium' | 'xhigh' }
+    | { kind: 'effort'; value: (typeof EFFORTS)[number] }
     | { kind: 'mode'; value: keyof typeof MODE_LABELS }
-    | { kind: 'model'; value: 'haiku' | 'opus' | 'sonnet' }
+    | {
+        kind: 'model'
+        value: 'Fable 5.2' | 'Haiku 5.5' | 'Opus 5.5' | 'Sonnet 5.5'
+      }
 }) {
   const host = await requireHost(props.host)
   const pane = { block: props.block, host, session: props.session }
@@ -74,7 +59,13 @@ async function changeClaudeSetting(props: {
       JSON.stringify({ data }),
     ])
   }
-  const bottom = await bottomLines(pane)
+  // Presses a key and waits for the screen to settle on the result.
+  async function press(data: string) {
+    await writeKeys(data)
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    return bottomLines(pane, 30)
+  }
+  const bottom = await bottomLines(pane, 10)
   // Keys typed while a dialog or menu is open would answer it instead.
   if (!bottom.includes('shift+tab to cycle')) {
     throw new Error(
@@ -88,13 +79,13 @@ async function changeClaudeSetting(props: {
     )
     // Each press moves to the next mode; a cycle has at most five.
     for (let press = 0; press < 5; press++) {
-      if ((await bottomLines(pane)).includes(label)) return
+      if ((await bottomLines(pane, 10)).includes(label)) return
       await writeKeys('\x1b[Z')
       await new Promise((resolve) => setTimeout(resolve, 500))
     }
     // Not in this Claude Code's cycle: go back to where it was.
     for (let press = 0; start && press < 5; press++) {
-      if ((await bottomLines(pane)).includes(start)) break
+      if ((await bottomLines(pane, 10)).includes(start)) break
       await writeKeys('\x1b[Z')
       await new Promise((resolve) => setTimeout(resolve, 500))
     }
@@ -107,40 +98,55 @@ async function changeClaudeSetting(props: {
       "Claude Code's input has unsent text. Send or clear it in the terminal, then try again.",
     )
   }
-  const source = await readFile(
-    path.join(process.cwd(), 'src/agent-settings/claude-defaults.mjs'),
-    'utf8',
-  )
-  const saved = defaultsSchema.parse(
-    await runRemoteProgram({
-      host,
-      request: {},
-      session: props.session,
-      source,
-    }),
-  )
-  const confirmation =
-    props.setting.kind === 'model' ? 'Set model to' : 'Set effort level to'
+  const confirmation = 'for this session only'
   // An earlier confirmation may still be on screen; wait for one more.
   const before = (await readScreen(pane)).split(confirmation).length
+  await rex(host, [
+    'api',
+    'call',
+    '-s',
+    props.session,
+    'block.event',
+    JSON.stringify({
+      block_id: props.block,
+      event: { payload: { text: '/model' }, type: 'paste' },
+      session_id: props.session,
+    }),
+  ])
+  await new Promise((resolve) => setTimeout(resolve, 120))
+  let picker = await press('\r')
   try {
-    await rex(host, [
-      'api',
-      'call',
-      '-s',
-      props.session,
-      'block.event',
-      JSON.stringify({
-        block_id: props.block,
-        event: {
-          payload: { text: `/${props.setting.kind} ${props.setting.value}` },
-          type: 'paste',
-        },
-        session_id: props.session,
-      }),
-    ])
-    await new Promise((resolve) => setTimeout(resolve, 120))
-    await writeKeys('\r')
+    for (let tries = 0; !picker.includes('Select model'); tries++) {
+      if (tries > 10) throw new Error("Claude Code's model picker didn't open.")
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      picker = await bottomLines(pane, 30)
+    }
+    if (props.setting.kind === 'model') {
+      // The picker opens on the current model; ↓ moves through the rows (and wraps).
+      const target = props.setting.value
+      for (let row = 0; highlighted(picker) !== target; row++) {
+        if (row > 8) {
+          throw new Error(`Claude Code doesn't offer ${target} here.`)
+        }
+        picker = await press('\x1b[B')
+      }
+    } else {
+      const target = EFFORTS.indexOf(props.setting.value)
+      for (let step = 0; ; step++) {
+        const current = effortIn(picker)
+        if (current === undefined) {
+          throw new Error('This model has no effort setting.')
+        }
+        if (current === target) break
+        if (step > EFFORTS.length) {
+          throw new Error(
+            `Claude Code didn't reach ${props.setting.value} effort.`,
+          )
+        }
+        picker = await press(current < target ? '\x1b[C' : '\x1b[D')
+      }
+    }
+    await writeKeys('s')
     const deadline = Date.now() + 10_000
     let switchConfirmed = false
     for (
@@ -149,11 +155,11 @@ async function changeClaudeSetting(props: {
       screen = await readScreen(pane)
     ) {
       // Mid-conversation, Claude Code asks whether to switch (the history is re-read on the new model).
-      // The person chose this model, so confirm the menu that's open now (not old text in the scrollback).
+      // The person chose this model, so confirm the menu that's open now, once.
       const option = detectPrompt(screen)?.options.find((choice) =>
         choice.label.startsWith('Yes, switch to'),
       )
-      if (props.setting.kind === 'model' && option && !switchConfirmed) {
+      if (option && !switchConfirmed) {
         switchConfirmed = true
         await writeKeys(option.key)
       }
@@ -164,26 +170,33 @@ async function changeClaudeSetting(props: {
       }
       await new Promise((resolve) => setTimeout(resolve, 400))
     }
-  } finally {
-    await runRemoteProgram({
-      host,
-      request: {
-        restore: {
-          model: saved.model ?? null,
-          modelSettings: saved.modelSettings ?? null,
-        },
-      },
-      session: props.session,
-      source,
-    })
+  } catch (error) {
+    // Leave Claude Code as it was rather than with its picker open.
+    if ((await bottomLines(pane, 30)).includes('Select model')) {
+      await writeKeys('\x1b')
+    }
+    throw error
   }
 }
 
-/** The last lines of the pane's screen: Claude Code's input line and its status line. */
-async function bottomLines(pane: {
-  block: string
-  host: string
-  session: string
-}) {
-  return (await readScreen(pane)).split('\n').slice(-10).join('\n')
+/** The model row the picker has highlighted, e.g. "Fable 5.2" ("❯ 3.  Fable 5.2   For your …"). */
+function highlighted(picker: string) {
+  const row = /^\s*❯\s*\d+\.\s+(.*?)(?:\s{2,}|$)/m.exec(picker)?.[1]
+  return row?.replace(/\s*✔$/, '')
+}
+
+/** The picker's effort level as an index into EFFORTS ("◉ xHigh effort ←/→ to adjust"). */
+function effortIn(picker: string) {
+  const level = /\b(low|medium|xhigh|high|max) effort/i.exec(picker)?.[1]
+  return level === undefined
+    ? undefined
+    : EFFORTS.findIndex((effort) => effort === level.toLowerCase())
+}
+
+/** The last lines of the pane's screen: Claude Code's input, status line, or its picker. */
+async function bottomLines(
+  pane: { block: string; host: string; session: string },
+  count: number,
+) {
+  return (await readScreen(pane)).split('\n').slice(-count).join('\n')
 }

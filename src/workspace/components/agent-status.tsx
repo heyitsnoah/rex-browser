@@ -11,10 +11,11 @@ import { setClaudeSettingAction } from '@/agent-settings/agent-settings-actions'
 
 type Setting = Parameters<typeof setClaudeSettingAction>[0]['setting']
 
-const MODELS = { haiku: 'Haiku 5.5', opus: 'Opus 5.5', sonnet: 'Sonnet 5.5' }
+// The models Claude Code's /model picker offers (its "More models" list is left to the terminal).
+const MODELS = ['Opus 5.5', 'Fable 5.2', 'Sonnet 5.5', 'Haiku 5.5'] as const
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
 // The menus' values come from the DOM as strings.
-const modelSchema = z.enum(['haiku', 'opus', 'sonnet'])
+const modelSchema = z.enum(MODELS)
 const effortSchema = z.enum(EFFORTS)
 const modeSchema = z.enum(['acceptEdits', 'auto', 'default', 'plan'])
 // What the read-only status line shows for each agent's mode: Claude's permission modes and Pi's
@@ -62,10 +63,7 @@ export function AgentStatus(props: {
     setSeenMode(props.status.mode)
     setChosen((current) => ({ ...current, mode: undefined }))
   }
-  const model =
-    chosen.model ??
-    /claude-(haiku|opus|sonnet)/.exec(props.status.model)?.[1] ??
-    ''
+  const model = chosen.model ?? modelName(props.status.model)
   const effort = chosen.effort ?? props.status.effort
   const mode = chosen.mode ?? (props.status.mode || 'default')
   const context = props.status.context
@@ -123,12 +121,12 @@ export function AgentStatus(props: {
         title={title}
         value={model}
       >
-        {!(model in MODELS) && (
-          <option value={model}>{modelName(props.status.model)}</option>
+        {!MODELS.some((name) => name === model) && (
+          <option value={model}>{model}</option>
         )}
-        {Object.entries(MODELS).map(([value, label]) => (
-          <option key={value} value={value}>
-            {label}
+        {MODELS.map((name) => (
+          <option key={name} value={name}>
+            {name}
           </option>
         ))}
       </select>

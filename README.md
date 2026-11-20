@@ -106,6 +106,14 @@ built-in commands and installed skills from that computer (`~/.claude/skills`,
 `~/.local/state/rex-browser/uploads/<uuid>/` on the pane's computer (folder 700,
 file 600, 25 MB max) and are not cleaned up automatically.
 
+### Model, effort and mode
+
+On a Claude Code pane, the status line beside "Send to" has menus for model (the
+ones Claude Code's `/model` picker offers), effort and mode. Model and effort go
+through that picker with "use this session only", so the computer's default
+stays; mode presses Shift+Tab until it shows. They wait until the agent is idle
+and refuse while a dialog is open or Claude's input holds unsent text.
+
 ### `!` commands
 
 In an agent pane, a message starting with `!` turns the box into a terminal
