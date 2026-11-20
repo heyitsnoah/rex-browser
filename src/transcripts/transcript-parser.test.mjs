@@ -813,3 +813,48 @@ test('messages a compaction kept, including a queued one, stay visible', () => {
     ['old', 'kept reply', 'queued while busy', 'Context compacted.', 'after'],
   )
 })
+
+test('! commands read as your command plus its output, and a terminal run as the original command', () => {
+  const user = (uuid, parentUuid, content) => ({
+    message: { content, role: 'user' },
+    parentUuid,
+    type: 'user',
+    uuid,
+  })
+  const { items } = parseTranscript(
+    jsonl([
+      user('a', null, '<bash-input>echo hi</bash-input>'),
+      user(
+        'b',
+        'a',
+        '<bash-stdout>hi</bash-stdout><bash-stderr></bash-stderr>',
+      ),
+      user(
+        'c',
+        'b',
+        '<bash-input>cat "$HOME/.local/state/rex-browser/runs/ab12cd34.txt"</bash-input>',
+      ),
+      user(
+        'd',
+        'c',
+        '<bash-stdout>$ gh auth refresh  (ran in a terminal)\nDone.\n[exit 0]</bash-stdout><bash-stderr></bash-stderr>',
+      ),
+    ]),
+    'claude',
+  )
+  assert.deepEqual(
+    items.map((item) => [item.role, item.text, item.name]),
+    [
+      ['user', '! echo hi', ''],
+      ['tool', JSON.stringify({ command: 'echo hi' }, null, 2), 'Terminal'],
+      ['result', 'hi', 'shell:b'],
+      ['user', '! gh auth refresh', ''],
+      [
+        'tool',
+        JSON.stringify({ command: 'gh auth refresh' }, null, 2),
+        'Terminal',
+      ],
+      ['result', 'Done.\n[exit 0]', 'run:ab12cd34'],
+    ],
+  )
+})

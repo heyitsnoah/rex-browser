@@ -32,16 +32,20 @@ export function Composer(props: {
   }
   // Hidden rather than unmounted while typing goes to the terminal, so the draft survives.
   readonly hidden: boolean
+  /** Runs a `!` command in a terminal beside the agent. */
+  readonly onRun: (command: string) => Promise<void>
   /** The agent's model, context size, branch and mode, as its own status line shows them. */
   readonly status: string | undefined
   readonly target: PaneTarget | undefined
 }) {
   const [text, setText] = useState('')
+  // Started with ! in an agent pane: the box is a terminal line and the text is a command.
+  const [shell, setShell] = useState(false)
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [menuIndex, setMenuIndex] = useState(0)
   const [menuClosed, setMenuClosed] = useState(false)
   const files = useRef<HTMLInputElement>(null)
-  const slashQuery = /^\/(\S*)$/.exec(text)?.[1]
+  const slashQuery = shell ? undefined : /^\/(\S*)$/.exec(text)?.[1]
   const commands = useSlashCommands(
     props.target,
     props.agentLabel !== undefined && slashQuery !== undefined,
@@ -108,6 +112,21 @@ export function Composer(props: {
   async function send() {
     const target = props.target
     if (!target || !canSend) return
+    if (shell) {
+      const command = text.trim()
+      setText('')
+      setShell(false)
+      try {
+        await props.onRun(command)
+      } catch (error) {
+        setShell(true)
+        setText((current) => current || command)
+        toast.error(
+          `Run failed: ${error instanceof Error ? error.message : 'unknown error'}`,
+        )
+      }
+      return
+    }
     const message = text.trim() ? text : ''
     // Clear at once; the conversation shows the message as pending until the transcript has it.
     setText('')
@@ -157,7 +176,15 @@ export function Composer(props: {
           </span>
         )}
       </p>
-      <div className="border-input bg-card focus-within:border-ring focus-within:ring-ring relative mx-auto max-w-184 rounded-xl border focus-within:ring-1">
+      <div
+        className={`focus-within:border-ring focus-within:ring-ring relative mx-auto max-w-184 rounded-xl border focus-within:ring-1 ${shell ? 'border-tray bg-tray text-tray-foreground' : 'border-input bg-card'}`}
+      >
+        {shell && (
+          <p className="px-3.5 pt-2.5 text-[0.75rem] text-white/60">
+            Runs in a terminal beside {props.agentLabel}; the output goes to it
+            when the command ends. Backspace past $ to leave.
+          </p>
+        )}
         {matches.length > 0 && (
           <ul
             className="border-border bg-popover absolute right-0 bottom-full left-0 mb-1.5 max-h-72 overflow-y-auto rounded-xl border p-1 shadow-lg"
@@ -215,60 +242,85 @@ export function Composer(props: {
             ))}
           </div>
         )}
-        <textarea
-          aria-label="Message to send to the selected pane"
-          className="block field-sizing-content max-h-44 min-h-11 w-full resize-none bg-transparent px-3.5 pt-3 pb-1 text-sm outline-none max-md:text-base"
-          onChange={(event) => {
-            setText(event.target.value)
-            setMenuIndex(0)
-            setMenuClosed(false)
-          }}
-          onKeyDown={(event) => {
-            const choice = matches.at(menuIndex)
-            if (
-              choice &&
-              (event.key === 'ArrowDown' || event.key === 'ArrowUp')
-            ) {
-              event.preventDefault()
-              setMenuIndex(
-                (index) =>
-                  (index +
-                    (event.key === 'ArrowDown' ? 1 : matches.length - 1)) %
-                  matches.length,
-              )
-            } else if (
-              choice &&
-              (event.key === 'Enter' || event.key === 'Tab') &&
-              !event.shiftKey
-            ) {
-              event.preventDefault()
-              pick(choice.name)
-            } else if (matches.length && event.key === 'Escape') {
-              setMenuClosed(true)
-            } else if (
-              event.key === 'Enter' &&
-              !event.shiftKey &&
-              !event.nativeEvent.isComposing
-            ) {
-              // Enter sends; Shift+Enter adds a line (and IME composition keeps its Enter).
-              event.preventDefault()
-              void send()
+        <div className="flex">
+          {shell && (
+            <span className="pt-3 pl-3.5 font-mono text-sm text-[#9be3a6] max-md:text-base">
+              $
+            </span>
+          )}
+          <textarea
+            aria-label={
+              shell
+                ? 'Command to run in a terminal'
+                : 'Message to send to the selected pane'
             }
-          }}
-          onPaste={(event) => {
-            const pasted = [...event.clipboardData.files]
-            if (!pasted.length) return
-            event.preventDefault()
-            pasted.forEach((file) => void upload(file))
-          }}
-          placeholder={
-            props.agentLabel
-              ? `Reply to ${props.agentLabel}${props.agentLabel === 'Claude Code' || props.agentLabel === 'Codex' ? ' · / for skills' : ''}`
-              : 'Text or command'
-          }
-          rows={1}
-          value={text}
-        />
+            className={`block field-sizing-content max-h-44 min-h-11 w-full resize-none bg-transparent px-3.5 pt-3 pb-1 text-sm outline-none max-md:text-base ${shell ? 'pl-2 font-mono' : ''}`}
+            onChange={(event) => {
+              const value = event.target.value
+              // A leading ! in an agent pane switches to a terminal line (typed or pasted).
+              if (!shell && props.agentLabel && value.startsWith('!')) {
+                setShell(true)
+                setText(value.slice(1))
+              } else {
+                setText(value)
+              }
+              setMenuIndex(0)
+              setMenuClosed(false)
+            }}
+            onKeyDown={(event) => {
+              if (shell && event.key === 'Backspace' && text === '') {
+                event.preventDefault()
+                setShell(false)
+                return
+              }
+              const choice = matches.at(menuIndex)
+              if (
+                choice &&
+                (event.key === 'ArrowDown' || event.key === 'ArrowUp')
+              ) {
+                event.preventDefault()
+                setMenuIndex(
+                  (index) =>
+                    (index +
+                      (event.key === 'ArrowDown' ? 1 : matches.length - 1)) %
+                    matches.length,
+                )
+              } else if (
+                choice &&
+                (event.key === 'Enter' || event.key === 'Tab') &&
+                !event.shiftKey
+              ) {
+                event.preventDefault()
+                pick(choice.name)
+              } else if (matches.length && event.key === 'Escape') {
+                setMenuClosed(true)
+              } else if (
+                event.key === 'Enter' &&
+                !event.shiftKey &&
+                !event.nativeEvent.isComposing
+              ) {
+                // Enter sends; Shift+Enter adds a line (and IME composition keeps its Enter).
+                event.preventDefault()
+                void send()
+              }
+            }}
+            onPaste={(event) => {
+              const pasted = [...event.clipboardData.files]
+              if (!pasted.length) return
+              event.preventDefault()
+              pasted.forEach((file) => void upload(file))
+            }}
+            placeholder={
+              shell
+                ? 'command'
+                : props.agentLabel
+                  ? `Reply to ${props.agentLabel}${props.agentLabel === 'Claude Code' || props.agentLabel === 'Codex' ? ' · / for skills' : ''}`
+                  : 'Text or command'
+            }
+            rows={1}
+            value={text}
+          />
+        </div>
         <div className="flex items-center gap-1.5 px-1.5 pt-1 pb-1.5">
           <button
             aria-label="Attach files"
@@ -300,7 +352,7 @@ export function Composer(props: {
             onClick={() => void send()}
             type="button"
           >
-            <span className="max-md:hidden">Send</span>
+            <span className="max-md:hidden">{shell ? 'Run' : 'Send'}</span>
             <kbd className="font-mono text-[0.7rem] opacity-80 max-md:hidden">
               Enter
             </kbd>

@@ -109,11 +109,11 @@ d="$HOME/.local/state/rex-browser/runs"; mkdir -p "$d"; chmod 700 "$d"
 printf '$ %s\\n\\n' "$cmd"
 if script --version >/dev/null 2>&1; then script -qfec "$cmd" "$d/${id}.raw"; else script -q "$d/${id}.raw" sh -c "$cmd"; fi
 code=$?
-{ printf '$ %s  (ran in a Rex tab)\\n' "$cmd"; perl -pe 's/\\e\\[[0-9;?]*[ -\\/]*[@-~]//g; s/\\e\\][^\\a\\e]*(\\a|\\e\\\\)//g; s/\\e[()][A-Z0-9]//g; s/\\r//g' "$d/${id}.raw" | tail -n 400; printf '[exit %s]\\n' "$code"; } > "$d/${id}.txt"
+{ printf '$ %s  (ran in a terminal)\\n' "$cmd"; perl -pe 's/\\e\\[[0-9;?]*[ -\\/]*[@-~]//g; s/\\e\\][^\\a\\e]*(\\a|\\e\\\\)//g; s/\\e[()][A-Z0-9]//g; s/\\r//g' "$d/${id}.raw" | sed -e '/^Script started on /d' -e '/^Script done on /d' | tail -n 400; printf '[exit %s]\\n' "$code"; } > "$d/${id}.txt"
 rm -f "$d/${id}.raw"
-printf '\\nREXRUN-%s-DONE · output sent to the agent\\n' '${id}'
+printf '\\nREXRUN-%s-DONE exit %s · output sent to the agent\\n' '${id}' "$code"
 exec "\${SHELL:-sh}" -l`
-    const { block_ids: blocks } = await rexJson({
+    const { block_ids: blocks, window_id: tab } = await rexJson({
       args: [
         'api',
         'call',
@@ -133,7 +133,10 @@ exec "\${SHELL:-sh}" -l`
         }),
       ],
       host,
-      schema: z.object({ block_ids: z.array(z.string()).min(1) }),
+      schema: z.object({
+        block_ids: z.array(z.string()).min(1),
+        window_id: z.string(),
+      }),
     })
     void handBack({
       agentBlock: props.block,
@@ -143,6 +146,7 @@ exec "\${SHELL:-sh}" -l`
       runBlock: blocks[0],
       session: props.session,
     })
+    return { block: blocks[0], id, tab }
   },
 )
 

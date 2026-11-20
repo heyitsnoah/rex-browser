@@ -119,7 +119,52 @@ export function parseTranscript(text, agent) {
       time,
     })
   }
+  // A `!` command you ran in the agent: your command, then its output as a step. A command run in its
+  // own terminal from Rex Browser comes back as `cat …/rex-browser/runs/<id>.txt`; it reads as the
+  // original command, with the output it saved.
+  let shellCommand
+  function shellRun(command, output, id) {
+    const run = /rex-browser\/runs\/([0-9a-f]{8})\.txt/.exec(command)
+    const saved = run && /^\$ (.*?) {2}\(ran in a terminal\)\n/.exec(output)
+    const shown = saved ? saved[1] : command
+    const callId = run ? `run:${run[1]}` : `shell:${id}`
+    add('user', `! ${shown}`, '', `${id}:you`)
+    add('tool', { command: shown }, 'Terminal', callId)
+    add(
+      'result',
+      saved ? output.slice(saved[0].length) : output,
+      callId,
+      `${id}:out`,
+      /\[exit [1-9]\d*\]\s*$/.test(output),
+    )
+  }
   function userText(value, id) {
+    const claudeInput = /^<bash-input>([\s\S]*)<\/bash-input>$/.exec(value)
+    if (claudeInput) {
+      shellCommand = claudeInput[1]
+      return
+    }
+    const claudeOutput =
+      /^<bash-stdout>([\s\S]*?)<\/bash-stdout><bash-stderr>([\s\S]*?)<\/bash-stderr>/.exec(
+        value,
+      )
+    if (claudeOutput && shellCommand !== undefined) {
+      shellRun(
+        shellCommand,
+        [claudeOutput[1], claudeOutput[2]].filter(Boolean).join('\n'),
+        id,
+      )
+      shellCommand = undefined
+      return
+    }
+    const codex =
+      /^<user_shell_command>\s*<command>\s*([\s\S]*?)\s*<\/command>\s*<result>\s*[\s\S]*?Output:\n([\s\S]*?)\s*<\/result>/.exec(
+        value,
+      )
+    if (codex) {
+      shellRun(codex[1], codex[2], id)
+      return
+    }
     if (
       BOOKKEEPING.test(value) ||
       value.startsWith('<task-notification>') ||

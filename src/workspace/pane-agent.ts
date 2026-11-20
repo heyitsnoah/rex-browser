@@ -2,20 +2,15 @@ import type { Conversation } from '@/transcripts/transcript-access'
 
 /**
  * The agent conversation a pane shows, or undefined to show its terminal: the
- * pane runs no agent, or a fresh agent hasn't written a transcript yet.
+ * pane runs no agent, or its transcript isn't known (a fresh agent, or no sure match).
  */
 export function paneAgent(
   conversation: Conversation | undefined,
   transcriptChosen: boolean,
 ) {
   if (conversation?.agent == null) return undefined
-  if (
-    !conversation.selected &&
-    conversation.candidates.length === 0 &&
-    !transcriptChosen
-  ) {
-    return undefined
-  }
+  // No transcript matched for sure: the terminal is the truth until one is picked.
+  if (!conversation.selected && !transcriptChosen) return undefined
   return conversation
 }
 

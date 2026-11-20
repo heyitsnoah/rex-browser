@@ -1,12 +1,13 @@
 'use client'
 
 import type { PendingMessage } from '@/workspace/components/conversation-view'
+import type { Run } from '@/workspace/components/run-card'
 import type { PaneTarget } from '@/workspace/workspace-queries'
 
 import { ConversationView } from '@/workspace/components/conversation-view'
 import { TerminalView } from '@/workspace/components/terminal-view'
 import { detectPrompt } from '@/workspace/detect-prompt'
-import { paneAgent } from '@/workspace/pane-agent'
+import { AGENT_NAMES, paneAgent } from '@/workspace/pane-agent'
 import { useConversation, useScreen } from '@/workspace/workspace-queries'
 
 /** One pane: its agent conversation with the terminal in a drawer, or just its terminal. */
@@ -18,9 +19,12 @@ export function PaneView(props: {
   readonly onChooseTranscript: (id: string) => void
   readonly onDrawerResize: (rem: number) => void
   readonly onInput: (data: string) => void
+  readonly onOpenRun: (run: Run) => void
   readonly onOpenTerminal: () => void
+  readonly onRunInput: (run: Run, data: string) => void
   readonly onSelect: () => void
   readonly pending: PendingMessage[]
+  readonly runs: Run[]
   readonly solo: boolean
   readonly target: PaneTarget
   readonly title: string
@@ -77,10 +81,12 @@ export function PaneView(props: {
             <ConversationView
               conversation={agent}
               onAnswer={props.onAnswer}
-              onChooseTranscript={props.onChooseTranscript}
+              onOpenRun={props.onOpenRun}
               onOpenTerminal={props.onOpenTerminal}
+              onRunInput={props.onRunInput}
               pending={props.pending}
               prompt={prompt}
+              runs={props.runs}
               // Restored from the browser's saved copy and not refreshed yet in this page load.
               savedAt={
                 conversation.dataUpdatedAt < performance.timeOrigin
@@ -132,6 +138,34 @@ export function PaneView(props: {
               terminal.
             </p>
           )}
+          {conversation.data?.agent &&
+            conversation.data.candidates.length > 0 && (
+              <div className="text-muted-foreground flex flex-wrap items-center gap-2 border-b px-3.5 py-1.5 text-[0.8rem]">
+                Not sure which saved conversation this{' '}
+                {AGENT_NAMES[conversation.data.agent]} is using.
+                <select
+                  aria-label="Show a saved conversation"
+                  className="border-input bg-card h-7 max-w-full rounded border px-1.5 text-[0.8rem]"
+                  defaultValue=""
+                  onChange={(event) =>
+                    props.onChooseTranscript(event.target.value)
+                  }
+                >
+                  <option disabled value="">
+                    Show a saved conversation…
+                  </option>
+                  {conversation.data.candidates.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      Last active{' '}
+                      {new Date(candidate.modified).toLocaleString([], {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      })}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           <div className="min-h-0 flex-1">{terminal}</div>
         </div>
       )}

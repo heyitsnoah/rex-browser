@@ -10,9 +10,11 @@ import { AnswerCard } from '@/workspace/components/answer-card'
 import { ImagePreview } from '@/workspace/components/image-preview'
 import { LiveDuration } from '@/workspace/components/live-duration'
 import { MarkdownText } from '@/workspace/components/markdown-text'
+import { type Run, RunCard } from '@/workspace/components/run-card'
 import { SubagentCard } from '@/workspace/components/subagent-card'
 import { ToolRun } from '@/workspace/components/tool-run'
 import { conversationBlocks } from '@/workspace/conversation-blocks'
+import { AGENT_NAMES } from '@/workspace/pane-agent'
 
 export interface PendingMessage {
   at: number
@@ -25,10 +27,12 @@ export interface PendingMessage {
 export function ConversationView(props: {
   readonly conversation: AgentConversation
   readonly onAnswer: (key: string) => void
-  readonly onChooseTranscript: (id: string) => void
+  readonly onOpenRun: (run: Run) => void
   readonly onOpenTerminal: () => void
+  readonly onRunInput: (run: Run, data: string) => void
   readonly pending: PendingMessage[]
   readonly prompt: AgentPrompt | undefined
+  readonly runs: Run[]
   readonly savedAt: number | undefined
 }) {
   const [preview, setPreview] = useState<string>()
@@ -98,28 +102,6 @@ export function ConversationView(props: {
             {warning}
           </p>
         ))}
-        {!props.conversation.selected && (
-          <div className="mb-4 space-y-2">
-            <p className="text-muted-foreground text-sm">
-              No exact live-session match. Choose a conversation from this
-              project; it won’t be resumed or changed.
-            </p>
-            <select
-              aria-label="Choose conversation"
-              className="border-input bg-card h-8 max-w-full rounded border px-2 text-sm"
-              defaultValue=""
-              onChange={(event) => props.onChooseTranscript(event.target.value)}
-            >
-              <option value="">Choose conversation…</option>
-              {props.conversation.candidates.map((candidate) => (
-                <option key={candidate.id} value={candidate.id}>
-                  {candidate.sessionId.slice(0, 8)} ·{' '}
-                  {new Date(candidate.modified).toLocaleString()}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
         {blocks.map((block) => {
           switch (block.kind) {
             case 'agent':
@@ -234,6 +216,18 @@ export function ConversationView(props: {
             </span>
           </div>
         ))}
+        {props.runs
+          // Once the agent has the output, the transcript shows the run.
+          .filter((run) => !items.some((item) => item.id === `run:${run.id}`))
+          .map((run) => (
+            <RunCard
+              agentLabel={AGENT_NAMES[props.conversation.agent]}
+              key={run.id}
+              onInput={(data) => props.onRunInput(run, data)}
+              onOpen={() => props.onOpenRun(run)}
+              run={run}
+            />
+          ))}
         {props.prompt && (
           <AnswerCard
             onAnswer={props.onAnswer}
