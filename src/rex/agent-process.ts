@@ -32,7 +32,11 @@ export async function readAgentProcess(props: {
     info.child,
   ].filter((p) => p !== undefined)
   return {
-    agent: processes.map(detectAgent).find((agent) => agent !== undefined),
+    agent:
+      processes.map(detectAgent).find((agent) => agent !== undefined) ??
+      // Started through a wrapper (`eh pi …`, `zsh -lc 'pi …'`), the agent shares the wrapper's
+      // process group, so Rex reports the wrapper; the agent still reports itself via program_status.
+      (await reportedAgent(props)),
     cwd: info.foreground?.cwd ?? info.child?.cwd,
     pids: processes.map((p) => p.pid),
   }
@@ -50,4 +54,35 @@ function detectAgent(proc: z.infer<typeof processSchema>) {
     return 'pi' as const
   }
   return undefined
+}
+
+async function reportedAgent(props: {
+  block: string
+  host: string
+  session: string
+}) {
+  try {
+    const status = await rexJson({
+      args: [
+        'block',
+        'call',
+        '-s',
+        props.session,
+        '-b',
+        props.block,
+        'program_status',
+      ],
+      host: props.host,
+      schema: z.object({
+        records: z.array(z.object({ effective_app: z.string().optional() })),
+      }),
+    })
+    const app = status.records.at(-1)?.effective_app ?? ''
+    if (app.startsWith('claude')) return 'claude' as const
+    if (app.startsWith('codex')) return 'codex' as const
+    if (app === 'pi' || app.startsWith('pi-')) return 'pi' as const
+    return undefined
+  } catch {
+    return undefined
+  }
 }

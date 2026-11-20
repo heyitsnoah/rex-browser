@@ -16,7 +16,10 @@ const roots =
       path.join(request.cwd || '', '.claude/skills'),
     ],
     codex: [path.join(home, '.codex/skills')],
-    pi: [path.join(home, '.pi/agent/skills')],
+    pi: [
+      path.join(home, '.pi/agent/skills'),
+      path.join(request.cwd || '', '.pi/skills'),
+    ],
   }[request.agent] || []
 roots.push(
   path.join(home, '.agents/skills'),

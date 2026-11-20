@@ -16,6 +16,9 @@ try {
   if (data.truncated && parsed) {
     parsed.warnings.push('Showing the most recent part of a long conversation.')
   }
+  if (data.branch && parsed && !parsed.status.branch) {
+    parsed.status.branch = data.branch
+  }
   const known = new Set(request.known || [])
   for (const item of parsed?.items || []) {
     if (!item.image || typeof item.image === 'string') continue

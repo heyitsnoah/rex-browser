@@ -1,6 +1,6 @@
 'use client'
 
-import { FileTextIcon, ImageIcon } from 'lucide-react'
+import { ChevronRightIcon, FileTextIcon, ImageIcon } from 'lucide-react'
 import { useLayoutEffect, useRef, useState } from 'react'
 
 import type { AgentConversation } from '@/transcripts/transcript-access'
@@ -61,7 +61,11 @@ export function ConversationView(props: {
     return !newer.some((item) =>
       message.text
         ? (item.role === 'user' &&
-            normalize(item.text).endsWith(normalize(message.text))) ||
+            (normalize(item.text).endsWith(normalize(message.text)) ||
+              (Boolean(item.name) &&
+                normalize(`${item.name} ${item.text}`).endsWith(
+                  normalize(message.text),
+                )))) ||
           (item.role === 'result' &&
             item.text.startsWith('Your questions have been answered:') &&
             normalize(item.text).includes(`="${normalize(message.text)}"`))
@@ -121,12 +125,11 @@ export function ConversationView(props: {
               )
             case 'note':
               return (
-                <p
-                  className={`mb-4 text-sm ${block.error ? 'text-destructive [overflow-wrap:anywhere]' : 'text-muted-foreground italic'}`}
+                <NoteBlock
+                  error={block.error}
                   key={block.id}
-                >
-                  {block.error ? `Error: ${block.text}` : block.text}
-                </p>
+                  text={block.text}
+                />
               )
             case 'run':
               return (
@@ -268,6 +271,42 @@ export function ConversationView(props: {
 
 function normalize(text: string) {
   return text.replace(/\s+/g, ' ').trim()
+}
+
+/** Short notes (errors, 1-line summaries) show inline; long thinking or compaction notes fold cleanly. */
+function NoteBlock(props: { readonly error: boolean; readonly text: string }) {
+  if (
+    props.error ||
+    (props.text.length <= 240 && !props.text.includes('\n\n'))
+  ) {
+    return (
+      <p
+        className={`mb-4 text-sm ${props.error ? 'text-destructive [overflow-wrap:anywhere]' : 'text-muted-foreground italic'}`}
+      >
+        {props.error ? `Error: ${props.text}` : props.text}
+      </p>
+    )
+  }
+  const firstLine =
+    props.text
+      .split('\n')
+      .map((line) => line.trim())
+      .find(Boolean) ?? ''
+  const title = firstLine
+    .replace(/^#+\s*/, '')
+    .replace(/^\*{1,2}(.*?)\*{1,2}$/, '$1')
+    .trim()
+  return (
+    <details className="group mb-4">
+      <summary className="text-muted-foreground hover:bg-subtle hover:text-foreground -ml-1 flex min-h-7 cursor-pointer list-none items-center gap-1.5 rounded-md px-1 text-sm italic">
+        <ChevronRightIcon className="size-3.5 shrink-0 transition-transform group-open:rotate-90" />
+        <span className="truncate">{title || 'Note'}</span>
+      </summary>
+      <div className="border-border text-muted-foreground mt-1.5 ml-1.5 max-h-96 overflow-auto border-l-2 pl-3 text-sm leading-relaxed whitespace-pre-wrap italic">
+        {props.text}
+      </div>
+    </details>
+  )
 }
 
 function YourMessage(props: {

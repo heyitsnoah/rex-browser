@@ -348,7 +348,14 @@ const MODES: Record<string, string> = {
   acceptEdits: 'accept edits',
   auto: 'auto mode',
   bypassPermissions: 'bypass permissions',
+  high: 'high thinking',
+  low: 'low thinking',
+  max: 'max thinking',
+  medium: 'medium thinking',
+  minimal: 'minimal thinking',
+  off: 'thinking off',
   plan: 'plan mode',
+  xhigh: 'xhigh thinking',
 }
 
 function statusLine(status: {
@@ -357,8 +364,10 @@ function statusLine(status: {
   mode: string
   model: string
 }) {
-  // claude-opus-5-5 → Opus 5.5
-  const model = /^claude-([a-z]+)-(\d+)-(\d+)/.exec(status.model)
+  // claude-opus-5-5 or anthropic/claude-haiku-4.5 → Opus 5.5 / Haiku 4.5
+  const model = /^(?:[a-z0-9-]+\/)?claude-([a-z]+)-(\d+)[.-](\d+)/.exec(
+    status.model,
+  )
   return [
     model
       ? `${model[1].charAt(0).toUpperCase()}${model[1].slice(1)} ${model[2]}.${model[3]}`

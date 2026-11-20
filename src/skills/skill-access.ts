@@ -19,7 +19,27 @@ const BUILT_IN = {
     'review',
   ],
   codex: ['compact', 'diff', 'init', 'model', 'new', 'review', 'status'],
-  pi: ['compact', 'model', 'new', 'resume', 'settings'],
+  pi: [
+    'compact',
+    'copy',
+    'export',
+    'fork',
+    'hotkeys',
+    'login',
+    'logout',
+    'model',
+    'name',
+    'new',
+    'quit',
+    'reload',
+    'resume',
+    'scoped-models',
+    'session',
+    'settings',
+    'share',
+    'thinking',
+    'tree',
+  ],
 } as const
 
 /** What the pane's agent accepts after `/`: its built-in commands and installed skills. */
@@ -51,6 +71,9 @@ export async function listSlashCommands(props: {
       description: 'Built-in command',
       name,
     })),
-    ...skills,
+    // Pi invokes skills as `/skill:<name>`; Claude Code and Codex use `/<name>`.
+    ...skills.map((skill) =>
+      agent === 'pi' ? { ...skill, name: `skill:${skill.name}` } : skill,
+    ),
   ]
 }

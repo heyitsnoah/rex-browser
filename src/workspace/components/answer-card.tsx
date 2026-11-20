@@ -23,7 +23,7 @@ export function AnswerCard(props: {
           <button
             className={`hover:bg-subtle flex min-h-10 items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-left text-[0.85rem] leading-snug transition-colors ${option.current ? 'border-input' : 'border-border'}`}
             key={option.key}
-            onClick={() => props.onAnswer(option.key)}
+            onClick={() => props.onAnswer(option.send)}
             type="button"
           >
             <kbd className="bg-muted grid h-5.5 min-w-5.5 shrink-0 place-items-center rounded font-mono text-xs">

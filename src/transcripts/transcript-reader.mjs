@@ -45,9 +45,36 @@ export async function readTranscripts(request) {
     }
   }
   await walk(root)
+  // An agent started by a shell or wrapper (`eh pi …`, `zsh -lc 'claude …'`) is a child of the
+  // pane's process; add its children (two levels) so the agent's own PID is matched.
+  const pids = (request.pids || []).filter(
+    (p) => Number.isSafeInteger(p) && p > 0,
+  )
+  for (let level = 0, edge = pids; level < 2 && edge.length; level++) {
+    const children = []
+    for (const pid of edge) {
+      try {
+        children.push(
+          ...execFileSync('pgrep', ['-P', String(pid)], {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'ignore'],
+            timeout: 2000,
+          })
+            .split('\n')
+            .map(Number)
+            .filter((p) => p > 0 && !pids.includes(p)),
+        )
+      } catch {
+        // pgrep exits 1 when there are no children.
+      }
+    }
+    pids.push(...children)
+    edge = children
+  }
   let exactId = ''
-  for (const pid of request.pids || []) {
-    if (!Number.isSafeInteger(pid) || pid <= 0) continue
+  const exactPaths = []
+  const launchCwds = new Set()
+  for (const pid of pids) {
     if (request.agent === 'claude') {
       try {
         const info = JSON.parse(
@@ -60,60 +87,104 @@ export async function readTranscripts(request) {
       } catch {
         // Optional metadata: matching falls back to the project directory.
       }
+    } else if (request.agent === 'pi') {
+      // Pi passes PI_SESSION_FILE / PI_SESSION_ID to child processes it spawns (e.g. bash tools),
+      // and its own PWD records the folder it started in (even if later moved by `ax wt`).
+      const env = await readFile(`/proc/${pid}/environ`, 'utf8').catch(() => '')
+      for (const entry of env.split('\0')) {
+        if (entry.startsWith('PI_SESSION_FILE=')) {
+          const p = entry.slice('PI_SESSION_FILE='.length)
+          if (p) exactPaths.push(p)
+        } else if (entry.startsWith('PI_SESSION_ID=')) {
+          const id = entry.slice('PI_SESSION_ID='.length)
+          if (id) exactId = id
+        } else if (entry.startsWith('PWD=')) {
+          const pwd = entry.slice('PWD='.length)
+          if (pwd) launchCwds.add(pwd)
+        }
+      }
     }
   }
-  let openPaths = []
+  const openPaths = [...exactPaths]
   try {
-    const pids = (request.pids || []).filter(
-      (p) => Number.isSafeInteger(p) && p > 0,
-    )
     if (pids.length) {
-      openPaths = execFileSync('lsof', ['-a', '-p', pids.join(','), '-Fn'], {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-        timeout: 2000,
-      })
-        .split('\n')
-        .filter((l) => l.startsWith('n'))
-        .map((l) => l.slice(1))
+      openPaths.push(
+        ...execFileSync('lsof', ['-a', '-p', pids.join(','), '-Fn'], {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+          timeout: 2000,
+        })
+          .split('\n')
+          .filter((l) => l.startsWith('n'))
+          .map((l) => l.slice(1)),
+      )
     }
   } catch {
     // lsof is often missing on Linux; /proc/<pid>/fd lists the same open files.
-    for (const pid of (request.pids || []).filter(
-      (p) => Number.isSafeInteger(p) && p > 0,
-    )) {
+    for (const pid of pids) {
       for (const fd of await readdir(`/proc/${pid}/fd`).catch(() => [])) {
         const target = await readlink(`/proc/${pid}/fd/${fd}`).catch(() => '')
         if (target.endsWith('.jsonl')) openPaths.push(target)
       }
     }
   }
-  // When the agent process started (seconds ago, via ps; works on Linux and macOS).
+  // When the agent process started (via ps; works on Linux and macOS). For Pi, prefer the actual
+  // `pi` child over a wrapper (`eh`, `zsh`), and pick up any explicit `--session` / `--session-id`.
   let started = 0
+  let agentPid = pids[0] || 0
   try {
-    const pid = (request.pids || []).find(
-      (p) => Number.isSafeInteger(p) && p > 0,
-    )
-    // etime is [[dd-]hh:]mm:ss on both Linux and macOS (etimes is Linux-only).
-    const m =
-      pid &&
-      execFileSync('ps', ['-o', 'etime=', '-p', String(pid)], {
-        encoding: 'utf8',
-        timeout: 2000,
-      })
-        .trim()
-        .match(/^(?:(\d+)-)?(?:(\d+):)?(\d+):(\d+)$/)
-    if (m) {
-      started =
-        Date.now() -
-        (((Number(m[1] || 0) * 24 + Number(m[2] || 0)) * 60 + Number(m[3])) *
-          60 +
-          Number(m[4])) *
-          1000
+    if (pids.length) {
+      const lines = execFileSync(
+        'ps',
+        ['-o', 'pid=,etime=,comm=,args=', '-p', pids.join(',')],
+        {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+          timeout: 2000,
+        },
+      )
+        .split('\n')
+        .map((line) => /^\s*(\d+)\s+(\S+)\s+(\S+)\s*(.*)$/.exec(line))
+        .filter(Boolean)
+      const piRow =
+        request.agent === 'pi' &&
+        lines.find(
+          (m) =>
+            m[3] === 'pi' ||
+            /(?:^|[/\s])pi(?:$|[/\s])|pi-coding-agent/i.test(m[4]),
+        )
+      const picked =
+        piRow || lines.find((m) => Number(m[1]) === pids[0]) || lines[0]
+      if (picked) {
+        agentPid = Number(picked[1])
+        started = parseEtime(picked[2])
+        if (request.agent === 'pi') {
+          const args = picked[4] || ''
+          const sessionFile =
+            /(?:^|\s)--session(?:=|\s+)(?:"([^"]+)"|'([^']+)'|(\S+))/.exec(args)
+          const sessionPath =
+            sessionFile?.[1] || sessionFile?.[2] || sessionFile?.[3]
+          if (sessionPath) {
+            openPaths.push(
+              path.isAbsolute(sessionPath)
+                ? sessionPath
+                : path.resolve(request.cwd || home, sessionPath),
+            )
+          }
+          const sessionIdArg = /(?:^|\s)--session-id(?:=|\s+)(\S+)/.exec(args)
+          if (sessionIdArg?.[1]) exactId = sessionIdArg[1]
+        }
+      }
     }
   } catch {
     // Optional metadata: matching falls back to the project directory.
   }
+  const canonicalCwd = request.cwd
+    ? await realpath(request.cwd).catch(() => request.cwd)
+    : ''
+  const canonicalOpenPaths = new Set(
+    await Promise.all(openPaths.map((p) => realpath(p).catch(() => p))),
+  )
   const candidates = []
   for (const file of files) {
     const handle = await open(file, 'r')
@@ -137,39 +208,72 @@ export async function readTranscripts(request) {
       rows.find((r) => r.type === 'session') ||
       rows.find((r) => r.cwd) ||
       {}
+    const sessionId = meta.sessionId || meta.id || path.basename(file, '.jsonl')
+    const canonicalFile = await realpath(file).catch(() => file)
     const exact =
-      (exactId && path.basename(file) === `${exactId}.jsonl`) ||
-      openPaths.includes(file)
-    if (!exact && meta.cwd !== request.cwd) continue
+      (exactId &&
+        (path.basename(file) === `${exactId}.jsonl` ||
+          sessionId === exactId)) ||
+      openPaths.includes(file) ||
+      canonicalOpenPaths.has(canonicalFile)
+    const sameCwd =
+      meta.cwd === request.cwd ||
+      launchCwds.has(meta.cwd) ||
+      (Boolean(canonicalCwd) &&
+        (meta.cwd === canonicalCwd ||
+          (await realpath(meta.cwd || '').catch(() => '')) === canonicalCwd))
+    if (!exact && !sameCwd) continue
     // Codex writes a separate rollout for each subagent thread, in the same folders with the same cwd.
     if (!exact && (meta.parent_thread_id || meta.source?.subagent)) continue
     const info = await stat(file)
-    const created = info.birthtimeMs > 0 ? info.birthtimeMs : info.mtimeMs
+    // Pi records its session creation timestamp on startup even before flushing the file on the first message.
+    const metaTime =
+      request.agent === 'pi' && meta.timestamp ? Date.parse(meta.timestamp) : 0
+    const created =
+      Number.isFinite(metaTime) && metaTime > 0
+        ? metaTime
+        : info.birthtimeMs > 0
+          ? info.birthtimeMs
+          : info.mtimeMs
     candidates.push({
       created,
       exact: Boolean(exact),
       id: Buffer.from(path.relative(root, file)).toString('base64url'),
       modified: info.mtime.toISOString(),
-      sessionId: meta.sessionId || meta.id || path.basename(file, '.jsonl'),
+      sessionId,
     })
   }
   candidates.sort((a, b) => b.modified.localeCompare(a.modified))
   const exact = candidates.filter((c) => c.exact)
-  // No exact match (Codex, Pi): the newest transcript in this project created after the agent started is the live one.
-  const since = started
-    ? candidates
+  let fallback
+  if (!request.id && exact.length === 0 && !exactId && started) {
+    if (request.agent === 'pi') {
+      const otherSameCwdStarts = await otherPiStartsInCwd({
+        canonicalCwd,
+        excludePids: new Set([...pids, agentPid]),
+        requestCwd: request.cwd,
+      })
+      fallback = choosePiCandidate({
+        candidates,
+        otherSameCwdStarts,
+        started,
+      })
+    } else {
+      // No exact match (Codex): the newest transcript in this project created after the agent started is the live one.
+      fallback = candidates
         .filter((c) => c.created >= started - 10000)
-        .sort((a, b) => b.created - a.created)
-    : []
-  // Claude names its session exactly; until that file exists (no message yet) there is no transcript,
-  // and guessing by start time could pick another agent's conversation in the same folder.
+        .sort((a, b) => b.created - a.created)[0]
+    }
+  }
+  // Claude (or Pi with explicit --session-id) names its session exactly; until that file exists
+  // there is no transcript, and guessing by start time could pick another agent's conversation.
   const chosen = request.id
     ? candidates.find((c) => c.id === request.id)
     : exact.length > 0
       ? exact[0]
       : exactId
         ? undefined
-        : since[0]
+        : fallback
   let text
   let truncated = false
   if (chosen) {
@@ -292,12 +396,119 @@ export async function readTranscripts(request) {
       ),
     )
   }
+  let branch = ''
+  if (chosen && request.cwd && request.agent !== 'claude') {
+    try {
+      const head = execFileSync(
+        'git',
+        ['-C', request.cwd, 'rev-parse', '--abbrev-ref', 'HEAD'],
+        {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+          timeout: 1000,
+        },
+      ).trim()
+      if (head && head !== 'HEAD') branch = head
+    } catch {
+      // Not a git repository, or git is unavailable.
+    }
+  }
   return {
-    // A Claude session known exactly but not written yet has no conversation to offer instead.
+    branch,
+    // A session known exactly (Claude PID metadata, Pi --session-id) but not written yet has no conversation to offer instead.
     candidates: exactId && exact.length === 0 ? [] : candidates.slice(0, 100),
     selected: chosen?.id,
     subagents: agents,
     text,
     truncated,
   }
+}
+
+async function otherPiStartsInCwd({ canonicalCwd, excludePids, requestCwd }) {
+  const starts = []
+  let rows
+  try {
+    rows = execFileSync('ps', ['-eo', 'pid=,etime=,comm='], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 2000,
+    })
+      .split('\n')
+      .map((line) => /^\s*(\d+)\s+(\S+)\s+(\S+)\s*$/.exec(line))
+      .filter((m) => m && m[3] === 'pi' && !excludePids.has(Number(m[1])))
+  } catch {
+    return starts
+  }
+  for (const m of rows) {
+    const pid = Number(m[1])
+    const start = parseEtime(m[2])
+    if (!start) continue
+    // On Linux, /proc/<pid>/cwd tells us whether this sibling Pi shares our project folder.
+    let pidCwd = await readlink(`/proc/${pid}/cwd`).catch(() => '')
+    if (!pidCwd) {
+      try {
+        pidCwd =
+          execFileSync('lsof', ['-a', '-p', String(pid), '-d', 'cwd', '-Fn'], {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'ignore'],
+            timeout: 1500,
+          })
+            .split('\n')
+            .find((l) => l.startsWith('n'))
+            ?.slice(1) || ''
+      } catch {
+        // Can't read sibling's cwd: conservatively assume it could be in this folder.
+      }
+    }
+    if (pidCwd) {
+      const canonicalPidCwd = await realpath(pidCwd).catch(() => pidCwd)
+      if (pidCwd !== requestCwd && canonicalPidCwd !== canonicalCwd) {
+        continue
+      }
+    }
+    starts.push(start)
+  }
+  return starts
+}
+
+function parseEtime(text) {
+  const m = String(text || '')
+    .trim()
+    .match(/^(?:(\d+)-)?(?:(\d+):)?(\d+):(\d+)$/)
+  if (!m) return 0
+  return (
+    Date.now() -
+    (((Number(m[1] || 0) * 24 + Number(m[2] || 0)) * 60 + Number(m[3])) * 60 +
+      Number(m[4])) *
+      1000
+  )
+}
+
+/**
+ * Matches a Pi pane to its own transcript without stealing a sibling Pi's conversation in the same
+ * folder. Pi writes its `session.timestamp` at startup (within seconds of process start), even if
+ * the file isn't flushed until the first message.
+ */
+export function choosePiCandidate({ candidates, otherSameCwdStarts, started }) {
+  const inStartupWindow = (created, start) =>
+    created >= start - 5000 && created <= start + 30000
+  const eligible = candidates.filter((c) => {
+    if (c.created < started - 5000) return false
+    const dist = Math.abs(c.created - started)
+    // Never pick a session whose timestamp falls in another running Pi's startup window (closer to it).
+    return !otherSameCwdStarts.some(
+      (other) =>
+        inStartupWindow(c.created, other) && Math.abs(c.created - other) < dist,
+    )
+  })
+  if (otherSameCwdStarts.length > 0) {
+    // With sibling Pis in the same folder, only auto-match a session from our own startup window.
+    return eligible
+      .filter((c) => inStartupWindow(c.created, started))
+      .sort(
+        (a, b) => Math.abs(a.created - started) - Math.abs(b.created - started),
+      )[0]
+  }
+  // Solo Pi in this folder: newest session created since startup (handles `/new` seamlessly).
+  return eligible.sort((a, b) => b.created - a.created)[0]
 }

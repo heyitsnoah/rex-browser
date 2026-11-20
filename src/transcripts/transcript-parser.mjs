@@ -123,13 +123,14 @@ export function parseTranscript(text, agent) {
   // own terminal from Rex Browser comes back as `cat …/rex-browser/runs/<id>.txt`; it reads as the
   // original command, with the output it saved.
   let shellCommand
-  function shellRun(command, output, id, failed = false) {
+  function shellRun(command, output, id, failed = false, bang = '!') {
     const run = /rex-browser\/runs\/([0-9a-f]{8})\.txt/.exec(command)
     const saved =
       run && /^\$ ([\s\S]*?) {2}\(ran in a terminal\)\n/.exec(output)
     const shown = saved ? saved[1] : command
     const callId = run ? `run:${run[1]}` : `shell:${id}`
-    add('user', `! ${shown}`, '', `${id}:you`)
+    const prefix = run ? '!' : bang
+    add('user', `${prefix} ${shown}`, '', `${id}:you`)
     add('tool', { command: shown }, 'Terminal', callId)
     add(
       'result',
@@ -181,13 +182,20 @@ export function parseTranscript(text, agent) {
     }
     const command = commandText(value)
     if (command) {
-      add(
-        'user',
-        (command.args || command.name)
-          .replace(/\s*\[Image #\d+\]\s*/g, ' ')
-          .trim(),
-        command.name,
-        id,
+      const files = []
+      const cleaned = (command.args || command.name)
+        .replace(
+          /\S*\/\.local\/state\/rex-browser\/uploads\/[\w-]+\/([\w.-]+)/g,
+          (_, name) => {
+            files.push(name)
+            return ' '
+          },
+        )
+        .replace(/\s*\[Image #\d+\]\s*/g, ' ')
+        .trim()
+      add('user', cleaned || command.name, command.name, id)
+      files.forEach((name, i) =>
+        add('attachment', name, 'file', `${id}:file${i}`),
       )
       return
     }
@@ -232,7 +240,8 @@ export function parseTranscript(text, agent) {
         add('result', output, part.tool_use_id, partId, part.is_error === true)
       } else if (['image', 'input_image'].includes(part.type)) {
         add('attachment', 'Image', '', partId)
-        // Inline image data (Claude: source.base64; Codex: data: URL). The server swaps it for a cache key.
+        // Inline image data (Claude: source.base64; Codex: data: URL; Pi: flat data + mimeType).
+        // The server swaps it for a cache key.
         const url =
           typeof part.image_url === 'string'
             ? part.image_url
@@ -248,7 +257,12 @@ export function parseTranscript(text, agent) {
               }
             : m
               ? { data: m[2], mime: m[1] }
-              : null
+              : typeof part.data === 'string'
+                ? {
+                    data: part.data,
+                    mime: part.mimeType || 'image/png',
+                  }
+                : null
         if (image && items.at(-1)?.role === 'attachment') {
           items.at(-1).image = image
         }
@@ -280,6 +294,21 @@ export function parseTranscript(text, agent) {
         (u.input_tokens || 0) +
         (u.cache_creation_input_tokens || 0) +
         (u.cache_read_input_tokens || 0)
+    }
+    if (agent === 'pi') {
+      if (r.type === 'model_change' && r.modelId) status.model = r.modelId
+      if (r.type === 'thinking_level_change' && r.thinkingLevel) {
+        status.mode = r.thinkingLevel
+      }
+      if (r.type === 'message' && r.message?.role === 'assistant') {
+        if (r.message.model) status.model = r.message.model
+        if (r.message.thinkingLevel) status.mode = r.message.thinkingLevel
+        const u = r.message.usage
+        if (u) {
+          const ctx = (u.input || 0) + (u.cacheRead || 0) + (u.cacheWrite || 0)
+          if (ctx > 0) status.context = ctx
+        }
+      }
     }
     if (agent === 'codex') {
       const p = r.payload || {}
@@ -324,6 +353,14 @@ export function parseTranscript(text, agent) {
       const prompt = r.attachment.prompt
       if (Array.isArray(prompt)) content('user', prompt, id)
       else userText(String(prompt || ''), id)
+    } else if (r.type === 'custom_message' && r.display === true) {
+      const text =
+        typeof r.content === 'string'
+          ? r.content
+          : Array.isArray(r.content)
+            ? r.content.map((c) => c.text || '').join('\n')
+            : ''
+      add('summary', text.trim(), '', id)
     } else if (
       r.message &&
       !r.isSidechain &&
@@ -331,14 +368,26 @@ export function parseTranscript(text, agent) {
       !r.isCompactSummary
     ) {
       const role = r.message.role || r.type
-      if (['assistant', 'toolResult', 'user'].includes(role)) {
+      if (role === 'bashExecution') {
+        shellRun(
+          r.message.command || '',
+          r.message.output || '',
+          id,
+          (r.message.exitCode != null && r.message.exitCode !== 0) ||
+            r.message.cancelled === true,
+          r.message.excludeFromContext === true ? '!!' : '!',
+        )
+      } else if (['assistant', 'toolResult', 'user'].includes(role)) {
         if (role === 'toolResult') {
+          const output = (r.message.content || [])
+            .map((c) => (c.type === 'text' ? c.text || '' : `[${c.type}]`))
+            .join('\n')
+            .trim()
           add(
             'result',
-            (r.message.content || [])
-              .map((c) => c.text || `[${c.type}]`)
-              .join('\n'),
-            '',
+            // A silent tool still gets a result, or its step would look like it's still running.
+            output || '(no output)',
+            r.message.toolCallId || '',
             id,
             r.message.isError === true,
           )
@@ -346,13 +395,16 @@ export function parseTranscript(text, agent) {
           content(role, r.message.content, id)
         }
       }
-      // Pi records a failed reply as stopReason "error" with the provider's message.
+      // Pi records a failed reply as stopReason "error" with the provider's message,
+      // and an Esc interrupt as stopReason "aborted".
       if (
         role === 'assistant' &&
         r.message.stopReason === 'error' &&
         r.message.errorMessage
       ) {
         add('error', errorText(r.message.errorMessage), '', `${id}:error`)
+      } else if (role === 'assistant' && r.message.stopReason === 'aborted') {
+        add('summary', 'Stopped.', '', `${id}:aborted`)
       }
     }
   }
@@ -424,6 +476,22 @@ export function parseTranscript(text, agent) {
         ),
     )
     working = last?.payload?.type === 'task_started'
+  } else if (agent === 'pi') {
+    // Pi writes each user message, tool-use assistant message, and tool result as they happen;
+    // a turn ends on an assistant message with any stopReason other than "toolUse" (stop, error,
+    // aborted, length), or a standalone bashExecution.
+    const last = active.findLast(
+      (r) =>
+        r.type === 'message' &&
+        ['assistant', 'bashExecution', 'toolResult', 'user'].includes(
+          r.message?.role,
+        ),
+    )
+    const role = last?.message?.role
+    working =
+      role === 'user' ||
+      role === 'toolResult' ||
+      (role === 'assistant' && last.message.stopReason === 'toolUse')
   }
   if (working) {
     since = items.findLast((item) => item.role === 'user')?.time || ''
@@ -447,10 +515,18 @@ export function parseTranscript(text, agent) {
 
 function commandText(text) {
   const name = text.match(/<command-name>([^<]*)<\/command-name>/)?.[1]
-  if (!name) return null
-  const args =
-    text.match(/<command-args>([\s\S]*?)<\/command-args>/)?.[1]?.trim() || ''
-  return { args, name: name.trim() }
+  if (name) {
+    const args =
+      text.match(/<command-args>([\s\S]*?)<\/command-args>/)?.[1]?.trim() || ''
+    return { args, name: name.trim() }
+  }
+  // Pi expands `/skill:<name> <args>` into `<skill name="…" location="…">…</skill>\n\n<args>`.
+  const skill =
+    /^<skill\s+name="([^"]+)"[^>]*>[\s\S]*?<\/skill>\s*([\s\S]*)$/.exec(text)
+  if (skill) {
+    return { args: skill[2].trim(), name: `/skill:${skill[1].trim()}` }
+  }
+  return null
 }
 
 // First line of a provider error, plus the readable message when the rest is JSON ("…(401): {"error":{"message":"…"}}").

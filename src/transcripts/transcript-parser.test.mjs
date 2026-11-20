@@ -893,3 +893,349 @@ test('Codex ! commands read like Claude ones, with a failed exit and a silent co
     ],
   )
 })
+
+test('Pi links toolResult by toolCallId, preserves failures, and handles silent output', () => {
+  const { items } = parseTranscript(
+    jsonl([
+      { cwd: '/project', id: 'sess', type: 'session', version: 3 },
+      {
+        id: 'u1',
+        message: {
+          content: [{ text: 'check files', type: 'text' }],
+          role: 'user',
+        },
+        parentId: null,
+        timestamp: '2026-11-20T20:00:00.000Z',
+        type: 'message',
+      },
+      {
+        id: 'a1',
+        message: {
+          content: [
+            {
+              arguments: { command: 'true' },
+              id: 'call_ok',
+              name: 'bash',
+              type: 'toolCall',
+            },
+            {
+              arguments: { command: 'ls /nope' },
+              id: 'call_err',
+              name: 'bash',
+              type: 'toolCall',
+            },
+          ],
+          role: 'assistant',
+          stopReason: 'toolUse',
+        },
+        parentId: 'u1',
+        timestamp: '2026-11-20T20:00:01.000Z',
+        type: 'message',
+      },
+      {
+        id: 'r1',
+        message: {
+          content: [{ text: '', type: 'text' }],
+          isError: false,
+          role: 'toolResult',
+          toolCallId: 'call_ok',
+          toolName: 'bash',
+        },
+        parentId: 'a1',
+        timestamp: '2026-11-20T20:00:02.000Z',
+        type: 'message',
+      },
+      {
+        id: 'r2',
+        message: {
+          content: [{ text: 'ls: /nope: No such file', type: 'text' }],
+          isError: true,
+          role: 'toolResult',
+          toolCallId: 'call_err',
+          toolName: 'bash',
+        },
+        parentId: 'r1',
+        timestamp: '2026-11-20T20:00:03.000Z',
+        type: 'message',
+      },
+    ]),
+    'pi',
+  )
+  assert.deepEqual(
+    items
+      .filter((item) => item.role === 'result')
+      .map((item) => [item.name, item.text, item.failed]),
+    [
+      ['call_ok', '(no output)', false],
+      ['call_err', 'ls: /nope: No such file', true],
+    ],
+  )
+})
+
+test('Pi working state tracks user, toolUse, toolResult, stop, error, Esc abort, and ! commands', () => {
+  const base = [
+    { cwd: '/project', id: 'sess', type: 'session', version: 3 },
+    {
+      id: 'm1',
+      modelId: 'anthropic/claude-haiku-4.5',
+      parentId: null,
+      provider: 'vercel-ai-gateway',
+      type: 'model_change',
+    },
+    {
+      id: 't1',
+      parentId: 'm1',
+      thinkingLevel: 'low',
+      type: 'thinking_level_change',
+    },
+  ]
+  const user = {
+    id: 'u1',
+    message: { content: [{ text: 'run sleep', type: 'text' }], role: 'user' },
+    parentId: 't1',
+    timestamp: '2026-11-20T20:24:45.000Z',
+    type: 'message',
+  }
+  const toolUse = {
+    id: 'a1',
+    message: {
+      content: [
+        {
+          arguments: { command: 'sleep 5' },
+          id: 'c1',
+          name: 'bash',
+          type: 'toolCall',
+        },
+      ],
+      model: 'anthropic/claude-haiku-4.5',
+      role: 'assistant',
+      stopReason: 'toolUse',
+      thinkingLevel: 'low',
+      usage: { cacheRead: 26000, cacheWrite: 900, input: 10, output: 100 },
+    },
+    parentId: 'u1',
+    timestamp: '2026-11-20T20:24:46.000Z',
+    type: 'message',
+  }
+  const toolResult = {
+    id: 'r1',
+    message: {
+      content: [{ text: 'DONE1\n', type: 'text' }],
+      isError: false,
+      role: 'toolResult',
+      toolCallId: 'c1',
+      toolName: 'bash',
+    },
+    parentId: 'a1',
+    timestamp: '2026-11-20T20:24:51.000Z',
+    type: 'message',
+  }
+  const done = {
+    id: 'a2',
+    message: {
+      content: [{ text: 'finished.', type: 'text' }],
+      model: 'anthropic/claude-haiku-4.5',
+      role: 'assistant',
+      stopReason: 'stop',
+      thinkingLevel: 'low',
+      usage: { cacheRead: 26900, cacheWrite: 88, input: 12, output: 20 },
+    },
+    parentId: 'r1',
+    timestamp: '2026-11-20T20:24:53.000Z',
+    type: 'message',
+  }
+  const aborted = {
+    id: 'a3',
+    message: {
+      content: [],
+      errorMessage: 'Operation aborted',
+      model: 'anthropic/claude-haiku-4.5',
+      role: 'assistant',
+      stopReason: 'aborted',
+      thinkingLevel: 'low',
+      usage: { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 },
+    },
+    parentId: 'r1',
+    timestamp: '2026-11-20T20:25:05.000Z',
+    type: 'message',
+  }
+  assert.equal(parseTranscript(jsonl(base), 'pi').working, false)
+  const afterUser = parseTranscript(jsonl([...base, user]), 'pi')
+  assert.equal(afterUser.working, true)
+  assert.equal(afterUser.since, '2026-11-20T20:24:45.000Z')
+  assert.equal(
+    parseTranscript(jsonl([...base, user, toolUse]), 'pi').working,
+    true,
+  )
+  assert.equal(
+    parseTranscript(jsonl([...base, user, toolUse, toolResult]), 'pi').working,
+    true,
+  )
+  const afterDone = parseTranscript(
+    jsonl([...base, user, toolUse, toolResult, done]),
+    'pi',
+  )
+  assert.equal(afterDone.working, false)
+  assert.deepEqual(afterDone.status, {
+    branch: '',
+    context: 27000,
+    mode: 'low',
+    model: 'anthropic/claude-haiku-4.5',
+  })
+  const afterAbort = parseTranscript(
+    jsonl([...base, user, toolUse, toolResult, aborted]),
+    'pi',
+  )
+  assert.equal(afterAbort.working, false)
+  assert.equal(afterAbort.status.context, 26910)
+  assert.deepEqual(afterAbort.items.at(-1), {
+    failed: false,
+    id: 'a3:aborted',
+    name: '',
+    role: 'summary',
+    text: 'Stopped.',
+    time: '2026-11-20T20:25:05.000Z',
+  })
+})
+
+test('Pi bashExecution records parse native !, !!, failed, silent, and Rex Browser run hand-back', () => {
+  const { items, working } = parseTranscript(
+    jsonl([
+      { cwd: '/project', id: 'sess', type: 'session', version: 3 },
+      {
+        id: 'b1',
+        message: {
+          cancelled: false,
+          command: 'cat "$HOME/.local/state/rex-browser/runs/11223344.txt"',
+          excludeFromContext: false,
+          exitCode: 0,
+          output: '$ echo hello  (ran in a terminal)\nhello\n[exit 0]\n',
+          role: 'bashExecution',
+        },
+        parentId: null,
+        type: 'message',
+      },
+      {
+        id: 'b2',
+        message: {
+          cancelled: false,
+          command: 'ls /nope',
+          excludeFromContext: false,
+          exitCode: 2,
+          output: 'ls: /nope: No such file\n',
+          role: 'bashExecution',
+        },
+        parentId: 'b1',
+        type: 'message',
+      },
+      {
+        id: 'b3',
+        message: {
+          cancelled: false,
+          command: 'true',
+          excludeFromContext: false,
+          exitCode: 0,
+          output: '',
+          role: 'bashExecution',
+        },
+        parentId: 'b2',
+        type: 'message',
+      },
+      {
+        id: 'b4',
+        message: {
+          cancelled: false,
+          command: 'echo quiet',
+          excludeFromContext: true,
+          exitCode: 0,
+          output: 'quiet\n',
+          role: 'bashExecution',
+        },
+        parentId: 'b3',
+        type: 'message',
+      },
+    ]),
+    'pi',
+  )
+  assert.equal(working, false)
+  assert.deepEqual(
+    items.map((item) => [item.role, item.name, item.text, item.failed]),
+    [
+      ['user', '', '! echo hello', false],
+      [
+        'tool',
+        'Terminal',
+        JSON.stringify({ command: 'echo hello' }, null, 2),
+        false,
+      ],
+      ['result', 'run:11223344', 'hello\n[exit 0]\n', false],
+      ['user', '', '! ls /nope', false],
+      [
+        'tool',
+        'Terminal',
+        JSON.stringify({ command: 'ls /nope' }, null, 2),
+        false,
+      ],
+      ['result', 'shell:b2', 'ls: /nope: No such file\n', true],
+      ['user', '', '! true', false],
+      ['tool', 'Terminal', JSON.stringify({ command: 'true' }, null, 2), false],
+      ['result', 'shell:b3', '(no output)', false],
+      ['user', '', '!! echo quiet', false],
+      [
+        'tool',
+        'Terminal',
+        JSON.stringify({ command: 'echo quiet' }, null, 2),
+        false,
+      ],
+      ['result', 'shell:b4', 'quiet\n', false],
+    ],
+  )
+})
+
+test('Pi /skill:<name> blocks, inline images, and custom_message visibility parse cleanly', () => {
+  const { items } = parseTranscript(
+    jsonl([
+      { cwd: '/project', id: 'sess', type: 'session', version: 3 },
+      {
+        id: 'u1',
+        message: {
+          content: [
+            {
+              text: '<skill name="ax-cli" location="/home/u/.pi/agent/skills/ax-cli/SKILL.md">\n# ax CLI\nLong skill instructions...\n</skill>\n\nshow help',
+              type: 'text',
+            },
+            { data: 'iVBORw0KGgo=', mimeType: 'image/png', type: 'image' },
+          ],
+          role: 'user',
+        },
+        parentId: null,
+        type: 'message',
+      },
+      {
+        content: 'Internal hidden prompt',
+        customType: 'attractor-flow-stage',
+        display: false,
+        id: 'c1',
+        parentId: 'u1',
+        type: 'custom_message',
+      },
+      {
+        content: 'Extension notice',
+        customType: 'notice',
+        display: true,
+        id: 'c2',
+        parentId: 'c1',
+        type: 'custom_message',
+      },
+    ]),
+    'pi',
+  )
+  assert.deepEqual(
+    items.map((item) => [item.role, item.name, item.text, item.image]),
+    [
+      ['user', '/skill:ax-cli', 'show help', undefined],
+      ['attachment', '', 'Image', { data: 'iVBORw0KGgo=', mime: 'image/png' }],
+      ['summary', '', 'Extension notice', undefined],
+    ],
+  )
+})
